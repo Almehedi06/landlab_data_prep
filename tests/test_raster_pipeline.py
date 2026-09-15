@@ -18,6 +18,8 @@ from pipeline import (
     run_landlab_pipeline,
     run_raster_pipeline,
 )
+from analysis_grid import check_on_grid, grid_from_config
+from export_ascii_to_tif import export_ascii_dir_to_tifs
 from reproject_and_resample import clip_raster_to_shape, convert_to_ascii, read_ascii_header
 
 
@@ -46,7 +48,7 @@ def _write_aoi(path: Path, bounds, crs: str) -> None:
     gdf.to_file(path, driver="ESRI Shapefile")
 
 
-def test_clip_raster_to_shape_preserves_template_grid(tmp_path: Path) -> None:
+def test_clip_raster_to_shape_crops_on_the_source_grid(tmp_path: Path) -> None:
     pytest.importorskip("fiona")
 
     crs = "EPSG:32610"
@@ -55,37 +57,49 @@ def test_clip_raster_to_shape_preserves_template_grid(tmp_path: Path) -> None:
     tif_path = tmp_path / "source.tif"
     _write_tif(tif_path, arr, transform, crs)
 
-    with rasterio.open(tif_path) as src:
-        template_meta = src.meta.copy()
-        bounds = src.bounds
-
-    # A smaller AOI inside the raster should mask values, not shrink the grid,
-    # when a template grid is provided.
-    aoi_bounds = (
-        bounds.left + 30.0,
-        bounds.bottom + 30.0,
-        bounds.right - 30.0,
-        bounds.top - 30.0,
-    )
     aoi_path = tmp_path / "aoi.shp"
-    _write_aoi(aoi_path, aoi_bounds, crs)
+    _write_aoi(aoi_path, (500030.0, 4099850.0, 500150.0, 4099970.0), crs)
 
-    clipped_path = Path(clip_raster_to_shape(str(tif_path), str(aoi_path), template_meta=template_meta))
-    with rasterio.open(clipped_path) as src:
-        clipped = src.read(1)
-        assert src.width == 6
-        assert src.height == 6
-        assert src.transform == transform
-        assert np.count_nonzero(clipped == src.nodata) > 0
+    clipped = Path(clip_raster_to_shape(str(tif_path), str(aoi_path)))
+    with rasterio.open(clipped) as src:
+        assert (src.width, src.height) == (4, 4)
+        assert src.transform.a == 30.0
+        assert (src.transform.c - 500000.0) % 30.0 == 0.0  # same pixel phase as the source
+        assert np.array_equal(src.read(1), arr[1:5, 1:5])
 
-    asc_path = Path(convert_to_ascii(str(clipped_path), str(tmp_path), template_meta=template_meta))
-    header = read_ascii_header(str(asc_path))
-    assert header["ncols"] == 6
-    assert header["nrows"] == 6
-    assert header["cellsize"] == 30.0
+    asc = convert_to_ascii(str(clipped), str(tmp_path))
+    assert read_ascii_header(asc)["ncols"] == 4
 
-    lines = asc_path.read_text().strip().splitlines()
-    assert len(lines) == 12
+
+def test_raster_pipeline_reports_every_failed_source(tmp_path: Path, monkeypatch) -> None:
+    import pipeline
+
+    aoi = tmp_path / "aoi.shp"
+    _write_aoi(aoi, (500010.0, 4099830.0, 500190.0, 4100010.0), "EPSG:32610")
+    cfg = {
+        "aoi": {"aoi": str(aoi)},
+        "paths": {"output_dir": str(tmp_path / "out")},
+        "raster": {"target_res": 30.0, "resampling_method": "bilinear"},
+    }
+    specs = [pipeline.SourceSpec(key, f"{key}.tif", "bilinear") for key in ("a", "b", "c")]
+
+    def fake_process(spec, *args, **kwargs):
+        if spec.key == "b":
+            return "b.asc"
+        raise OSError(f"cannot read {spec.uri}")
+
+    monkeypatch.setattr(pipeline, "validate_pipeline_inputs", lambda cfg: None)
+    monkeypatch.setattr(pipeline, "fetch_dem", lambda *args: "dem.tif")
+    monkeypatch.setattr(pipeline, "process_dem", lambda *args: "dem.asc")
+    monkeypatch.setattr(pipeline, "build_sources_from_config", lambda cfg: specs)
+    monkeypatch.setattr(pipeline, "process_source", fake_process)
+
+    with pytest.raises(RuntimeError) as err:
+        pipeline.run_raster_pipeline(cfg)
+    message = str(err.value)
+    assert "a: OSError: cannot read a.tif" in message
+    assert "c: OSError: cannot read c.tif" in message
+    assert "b:" not in message
 
 
 def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
@@ -142,7 +156,6 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     cfg = {
         "aoi": {"aoi": str(aoi_path)},
         "paths": {
-            "input_dir": str(data_dir),
             "output_dir": str(out_dir),
         },
         "raster": {
@@ -185,6 +198,9 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     }
 
     outputs = run_raster_pipeline(cfg, cleanup_intermediates=False)
+    grid = grid_from_config(cfg)
+    for path in outputs.values():
+        check_on_grid(path, grid)
     grid = run_landlab_pipeline(cfg, outputs)
 
     assert "soil__thickness" in grid.at_node
@@ -203,6 +219,25 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     ]
     for path in expected_files:
         assert path.exists(), f"Missing output: {path}"
+
+    # Every written layer must export and read back: no inf or nan anywhere, and
+    # cells outside the AOI stay -9999 instead of being scaled or pushed through
+    # the soil formulas.
+    exported, _ = export_ascii_dir_to_tifs(out_dir, overwrite=True, crs=grid_from_config(cfg).crs)
+    assert exported >= len(expected_files)
+    with rasterio.open(out_dir / "topographic__elevation.tif") as src:
+        outside = src.read(1) == -9999.0
+    assert outside.any()
+    derived = {
+        "soil__thickness", "soil__saturated_hydraulic_conductivity", "soil__transmissivity",
+        "saturated__water_content", "porosity", "soil__density", "soil__internal_friction_angle",
+    }
+    for tif in sorted(out_dir.glob("*.tif")):
+        with rasterio.open(tif) as src:
+            data = src.read(1)
+        assert np.isfinite(data).all(), f"non-finite values in {tif.name}"
+        if tif.stem in derived:
+            assert (data[outside] == -9999.0).all(), f"{tif.name} is not nodata outside the AOI"
 
 
 def test_disabled_dnbr_needs_no_source_configuration() -> None:

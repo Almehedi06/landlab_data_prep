@@ -1,85 +1,57 @@
-# ----------------------------
-# Spatial inputs / AOI
-# ----------------------------
+# ============================================================================
+# landslide-data-prep config template. Copy it to config/base.yaml
+# (git-ignored) and edit the values for your event: one event at a time.
+# Every command reads that file (default: config/base.yaml):
+#   python src/run_pipeline.py --config config/base.yaml --export-final-tifs
+#   python scripts/soil_run.py --config config/base.yaml
+#   python scripts/remote_sensing_run.py --config config/base.yaml
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Event
+# ----------------------------------------------------------------------------
 aoi:
   aoi: /abs/path/to/aoi.shp
 
-# ----------------------------
-# Data directories
-# ----------------------------
 paths:
-  input_dir: /abs/path/to/project_inputs
-  output_dir: /abs/path/to/project_outputs
+  output_dir: /abs/path/to/outputs
 
-# ----------------------------
-# Model inputs (feature switches)
-# ----------------------------
-inputs:
-  soil:
-    k_factor: true
-  burn:
-    index: burn_severity
-  topography:
-    elevation: true
-    slope: true
-    aspect: true
-  climate:
-    rainfall: true
-
-# ----------------------------
-# Target / label settings
-# ----------------------------
-target:
-  variable: debris_flow
-  type: binary
-  positive_value: 1
-
-# ----------------------------
-# Raster processing
-# ----------------------------
-raster:
-  target_res: 10
-  resampling_method: bilinear
-
-# ----------------------------
-# Fire metadata
-# ----------------------------
-fire:
+fire:                     # read only to build remote BAER download names
   name: Example Fire
   id: ST0000000000000000000
-  state: WA
-  year: 2022
-  post_image_date: ""   # YYYYMMDD; required only when dnbr.enabled=true and
-                         # dnbr.source is remote, remote_then_local, or auto
+  post_image_date: ""     # YYYYMMDD; needed only for remote dNBR
 
-# ----------------------------
-# DEM source
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Analysis grid: every command builds the same grid from aoi.aoi and
+# target_res (the AOI's UTM zone, AOI bounds snapped outward to multiples of
+# target_res). There are no per-command overrides.
+# ----------------------------------------------------------------------------
+raster:
+  target_res: 10                  # metres
+  resampling_method: bilinear     # default for continuous sources
+
+# ----------------------------------------------------------------------------
+# DEM: source is local or bmi-topography
+# ----------------------------------------------------------------------------
 dem:
-  # Use one of:
-  # source: bmi-topography
-  # source: local
   source: bmi-topography
+  path: /abs/path/to/local_dem.tif   # used only when source: local
+  # Used only when source: bmi-topography
   dem_type: USGS10m
   output_format: GTiff
   buffer_deg: 0.05
   cache_dir: /abs/path/to/cache
-  api_key: ""
+  api_key: ""                        # OpenTopography key, or set USGS_TOPO_API_KEY
 
-  # Required only when source=local
-  # path: /abs/path/to/local_dem.tif
-
-# ----------------------------
-# Burn severity (selectable source)
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Burn severity, categorical SBS: source is local, remote, remote_then_local or auto
+# ----------------------------------------------------------------------------
 burn_severity:
   source: remote_then_local
-
   local:
     path: /abs/path/to/local_burn_dir
     filename: burn_severity.tif
     resampling: nearest
-
   remote:
     base_url: https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/baer/
     candidates:
@@ -87,28 +59,25 @@ burn_severity:
       - "{base_url}{fire_name_fmt}_{fire_id_fmt}_sbs.zip"
     resampling: nearest
 
-# ----------------------------
-# Continuous dNBR (BAER "preliminary" bundle - differs from burn_severity's
-# categorical SBS product above; same archive host, different zip/product)
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Continuous dNBR from the BAER "preliminary" bundle. Skipped unless enabled.
+# ----------------------------------------------------------------------------
 dnbr:
   enabled: false
   source: remote_then_local
-
   local:
     path: /abs/path/to/local_burn_dir
     filename: dnbr.tif
     resampling: bilinear
-
   remote:
     base_url: https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/baer/
     candidates:
       - "{base_url}{fire_name_fmt}_{fire_id_fmt}_{post_date_fmt}_preliminary.zip"
     resampling: bilinear
 
-# ----------------------------
-# Other feature rasters
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Soil and landcover: each url is a local file or a remote URL.
+# ----------------------------------------------------------------------------
 feature_sources:
   rasters:
     cec7_0_cm:
@@ -132,9 +101,24 @@ feature_sources:
     dbovendry_0_cm:
       url: https://storage.googleapis.com/solus100pub/dbovendry_0_cm_p.tif
       resampling: bilinear
-
   landcover:
     nlcd_2021:
       url: https://www.mrlc.gov/downloads/sciweb1/shared/mrlc/data-bundles/Annual_NLCD_LndCov_2021_CU_C1V1.zip
       resampling: nearest
       unzip: true
+
+# ----------------------------------------------------------------------------
+# Remote sensing: NASA HLS vegetation indices, built by
+# scripts/remote_sensing_run.py; the Landlab pipeline ignores this block.
+# Uncomment to enable. Every key is required except resampling, and unknown
+# keys are an error. Needs EARTHDATA_TOKEN or a ~/.netrc entry for
+# urs.earthdata.nasa.gov. Keep both windows in the same season.
+#
+# remote_sensing:
+#   windows:
+#     pre:  {start: 2017-06-01, end: 2017-09-30}
+#     post: {start: 2018-06-01, end: 2018-09-30}
+#   indices: [NBR, NDVI, NDMI]
+#   cloud_max: 60          # drop whole scenes above this cloud cover percent
+#   compositing: median
+#   resampling: bilinear   # optional; default is raster.resampling_method

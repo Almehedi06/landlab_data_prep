@@ -64,10 +64,6 @@ def main() -> None:
         transform = from_origin(500000.0, 4100000.0, 30.0, 30.0)
         shape = (6, 6)
 
-        template_arr = np.arange(shape[0] * shape[1], dtype="float32").reshape(shape)
-        template_path = input_dir / "template.tif"
-        _write_tif(template_path, template_arr, transform, crs=crs)
-
         for i, key in enumerate(soil_map.keys(), start=1):
             arr = np.full(shape, float(i), dtype="float32")
             _write_tif(input_dir / f"{key}.tif", arr, transform, crs=crs)
@@ -101,8 +97,6 @@ def main() -> None:
             str(cli_path),
             "--config",
             str(cfg_path),
-            "--template",
-            str(template_path),
             "--output-dir",
             str(output_dir),
             "--format",

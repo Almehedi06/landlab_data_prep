@@ -24,6 +24,9 @@ geo = [
   "landlab>=2.8",
   "bmi-topography>=0.5",
 ]
+remote-sensing = [
+  "pystac-client>=0.7",
+]
 dev = [
   "pytest>=8.0",
   "ruff>=0.6",
@@ -33,30 +36,28 @@ dev = [
 soil-fetch = "soil_data.cli_fetch:main"
 soil-harmonize = "soil_data.cli_harmonize:main"
 soil-run = "soil_data.cli_run:main"
+remote-sensing-run = "remote_sensing.cli_run:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 py-modules = [
-  "climate_features",
-  "clip_rasters_to_fire",
+  "analysis_grid",
   "dem",
   "dem_difference",
   "downloads",
   "export_ascii_to_tif",
   "landlab_io",
-  "load_fire_perimeter",
   "pipeline",
   "preflight",
   "reproject_and_resample",
   "run_pipeline",
   "soil_features",
-  "topo_derivatives",
   "vegetation_features",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["soil_data*"]
+include = ["soil_data*", "remote_sensing*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

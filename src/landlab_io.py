@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Callable
 
+import numpy as np
 from landlab.io import esri_ascii
 
 try:
@@ -46,7 +47,8 @@ def add_ascii_field(
     if transform is not None:
         raw_vals = transform(raw_vals)
 
-    vals = raw_vals * scale + offset
+    # Scaling must not turn nodata into a plausible number (-9999 * 0.01 = -99.99).
+    vals = np.where(raw_vals == nodata_val, nodata_val, raw_vals * scale + offset)
     master_grid.add_field(field_name, vals, at="node", clobber=True)
 
     if close_nodata:

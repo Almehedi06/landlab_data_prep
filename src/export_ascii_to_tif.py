@@ -5,10 +5,11 @@ import glob
 import os
 from pathlib import Path
 
-import geopandas as gpd
 import numpy as np
 import rasterio
 import yaml
+
+from analysis_grid import grid_from_config
 
 
 def _load_config(config_path: str | None) -> dict:
@@ -28,32 +29,11 @@ def _resolve_output_dir(config_path: str | None, output_dir: str | None) -> Path
     return Path(out)
 
 
-def _normalize_crs(crs: str | int | None) -> str | None:
-    if crs is None:
-        return None
-    if isinstance(crs, int):
-        return f"EPSG:{crs}"
-    return str(crs)
-
-
-def _resolve_crs(config_path: str | None, aoi_path: str | None, crs_arg: str | None) -> str | None:
-    if crs_arg:
-        return _normalize_crs(crs_arg)
-
-    if not aoi_path and config_path:
-        cfg = _load_config(config_path)
-        aoi_path = cfg.get("aoi", {}).get("aoi")
-
-    if not aoi_path:
-        return None
-
-    gdf = gpd.read_file(aoi_path)
-    if gdf.crs is None:
-        return None
-    epsg = gdf.crs.to_epsg()
-    if epsg is not None:
-        return f"EPSG:{epsg}"
-    return gdf.crs.to_wkt()
+def _resolve_crs(config_path: str | None) -> str:
+    """CRS of the analysis grid the config defines; ESRI ASCII files carry none."""
+    if not config_path:
+        raise ValueError("--config is required: the exported CRS comes from its analysis grid.")
+    return grid_from_config(_load_config(config_path)).crs
 
 
 def _asc_to_tif(asc_path: Path, tif_path: Path, overwrite: bool, crs: str | None) -> bool:
@@ -107,8 +87,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--config",
-        default=None,
-        help="Optional config YAML; uses cfg['paths']['output_dir'] if set.",
+        required=True,
+        help="Config YAML. Sets the CRS from its analysis grid, and the output dir unless --output-dir is given.",
     )
     parser.add_argument(
         "--output-dir",
@@ -121,16 +101,6 @@ def main() -> None:
         help="Glob pattern for ASCII files (default: *.asc).",
     )
     parser.add_argument(
-        "--aoi",
-        default=None,
-        help="AOI shapefile used to set CRS for exported GeoTIFFs.",
-    )
-    parser.add_argument(
-        "--crs",
-        default=None,
-        help="CRS override (e.g., EPSG:32611).",
-    )
-    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Overwrite existing .tif files.",
@@ -139,7 +109,7 @@ def main() -> None:
 
     out_dir = _resolve_output_dir(args.config, args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    crs = _resolve_crs(args.config, args.aoi, args.crs)
+    crs = _resolve_crs(args.config)
 
     exported, skipped = export_ascii_dir_to_tifs(
         out_dir,

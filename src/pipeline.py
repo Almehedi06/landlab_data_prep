@@ -7,7 +7,6 @@ from typing import Callable
 
 import geopandas as gpd
 import numpy as np
-import rasterio
 import yaml
 
 from dem import fetch_dem
@@ -19,12 +18,8 @@ from preflight import (
     validate_aoi_overlaps_raster,
     validate_raster_path,
 )
-from reproject_and_resample import (
-    clip_raster_to_shape,
-    convert_to_ascii,
-    reproject_raster_to_match_crs,
-    resample_raster,
-)
+from analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
+from reproject_and_resample import convert_to_ascii
 from soil_features import (
     compute_fc_wp_arrays,
     compute_ksat,
@@ -70,31 +65,12 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def ensure_utm_aoi(aoi_path: str) -> tuple[str, str]:
-    gdf = load_and_validate_aoi(aoi_path)
-
-    crs_wkt = gdf.crs.to_wkt()
-    if "UTM zone" in crs_wkt:
-        epsg_code = gdf.crs.to_epsg()
-        crs = f"EPSG:{epsg_code}"
-        LOG.info("AOI already in UTM: %s", crs)
-        return aoi_path, crs
-
-    centroid = gdf.to_crs(epsg=4326).geometry.unary_union.centroid
-    zone = int((centroid.x + 180) / 6) + 1
-    crs = f"EPSG:326{zone}"
-
-    # Preserve notebook behavior: overwrite AOI on disk.
-    gdf = gdf.to_crs(crs)
-    gdf.to_file(aoi_path, driver="ESRI Shapefile")
-    LOG.info("Reprojected AOI to %s and overwrote %s", crs, aoi_path)
-    return aoi_path, crs
-
-
 def validate_pipeline_inputs(cfg: dict) -> None:
     aoi_path = cfg["aoi"]["aoi"]
     load_and_validate_aoi(aoi_path)
     ensure_output_dir_writable(cfg["paths"]["output_dir"])
+
+    grid_from_config(cfg)  # a missing or invalid grid fails before anything downloads
 
     dem_cfg = cfg.get("dem", {})
     dem_source = str(dem_cfg.get("source", "bmi-topography")).lower()
@@ -291,72 +267,45 @@ def resolve_source_to_tif(spec: SourceSpec, output_dir: str) -> str:
     return _resolve_single_source(spec, output_dir)
 
 
-def process_dem(
-    dem_path: str,
-    aoi_path: str,
-    target_crs: str,
-    target_resolution: float,
-    output_dir: str,
-) -> tuple[str, dict]:
-    dem_reproj = reproject_raster_to_match_crs(
-        str(dem_path),
-        target_crs_epsg=target_crs.split(":")[1],
-        resampling_method="cubic",
-    )
-    dem_clipped = clip_raster_to_shape(dem_reproj, aoi_path)
-    dem_resampled = resample_raster(
-        dem_clipped,
-        template_meta=None,
-        resampling_method="cubic",
-        target_resolution=target_resolution,
-    )
-    dem_ascii = convert_to_ascii(dem_resampled, output_dir, template_meta=None)
+DOWNLOADS_SUBDIR = "_downloads"
 
-    with rasterio.open(dem_resampled) as src:
-        template_meta = src.meta.copy()
 
-    return dem_ascii, template_meta
+def process_dem(dem_path: str, aoi_path: str, grid: Grid, output_dir: str) -> str:
+    """Warp the DEM straight onto the analysis grid: one cubic resampling, no second pass."""
+    aligned = align_to_grid(
+        dem_path,
+        os.path.join(output_dir, ALIGNED_SUBDIR, "dem.tif"),
+        grid,
+        DEM_RESAMPLING,
+        aoi_path=aoi_path,
+    )
+    return convert_to_ascii(str(aligned), output_dir, grid=grid)
 
 
 def _cleanup_intermediates(output_dir: str) -> None:
-    for item in os.listdir(output_dir):
-        item_path = os.path.join(output_dir, item)
-        try:
-            if os.path.isfile(item_path) and item_path.lower().endswith((".tif", ".zip")):
-                os.remove(item_path)
-            elif os.path.isdir(item_path) and item.startswith("unzipped_"):
-                import shutil
+    """Remove downloads and aligned intermediates. Never touches other files in output_dir."""
+    import shutil
 
-                shutil.rmtree(item_path)
-        except Exception as exc:
-            LOG.warning("Could not delete %s: %s", item_path, exc)
+    for name in (DOWNLOADS_SUBDIR, ALIGNED_SUBDIR):
+        shutil.rmtree(os.path.join(output_dir, name), ignore_errors=True)
 
 
 def process_source(
     spec: SourceSpec,
     aoi_path: str,
-    target_crs: str,
-    template_meta: dict,
-    target_resolution: float,
+    grid: Grid,
     output_dir: str,
     cleanup_intermediates: bool = True,
 ) -> str:
-    src_path = resolve_source_to_tif(spec, output_dir)
-
-    reprojected = reproject_raster_to_match_crs(
+    src_path = resolve_source_to_tif(spec, os.path.join(output_dir, DOWNLOADS_SUBDIR))
+    aligned = align_to_grid(
         src_path,
-        target_crs_epsg=target_crs.split(":")[1],
-        resampling_method=spec.resampling,
-        template_meta=template_meta,
+        os.path.join(output_dir, ALIGNED_SUBDIR, f"{spec.key}.tif"),
+        grid,
+        spec.resampling,
+        aoi_path=aoi_path,
     )
-    resampled = resample_raster(
-        reprojected,
-        template_meta=template_meta,
-        resampling_method=spec.resampling,
-        target_resolution=target_resolution,
-    )
-    clipped = clip_raster_to_shape(resampled, aoi_path, template_meta=template_meta)
-    ascii_path = convert_to_ascii(clipped, output_dir, template_meta=template_meta)
+    ascii_path = convert_to_ascii(str(aligned), output_dir, grid=grid)
 
     if cleanup_intermediates:
         _cleanup_intermediates(output_dir)
@@ -366,34 +315,33 @@ def process_source(
 
 def run_raster_pipeline(cfg: dict, cleanup_intermediates: bool = True) -> dict:
     validate_pipeline_inputs(cfg)
-    aoi_path, target_crs = ensure_utm_aoi(cfg["aoi"]["aoi"])
+    grid = grid_from_config(cfg)
+    aoi_path = cfg["aoi"]["aoi"]
     output_dir = cfg["paths"]["output_dir"]
     os.makedirs(output_dir, exist_ok=True)
+    LOG.info("Analysis grid: %s", grid.as_dict())
+    if "remote_sensing" in cfg:
+        LOG.info("The remote_sensing block is built separately: python scripts/remote_sensing_run.py")
 
     dem_path = fetch_dem(aoi_path, cfg.get("dem", {}), output_dir)
-    dem_ascii, template_meta = process_dem(
-        dem_path,
-        aoi_path,
-        target_crs,
-        cfg["raster"]["target_res"],
-        output_dir,
-    )
+    outputs = {"dem": process_dem(str(dem_path), aoi_path, grid, output_dir)}
 
-    outputs = {"dem": dem_ascii}
+    # Every configured source is required. Collect all failures so one run shows them all.
+    failures: list[str] = []
     for spec in build_sources_from_config(cfg):
         try:
             outputs[spec.key] = process_source(
-                spec,
-                aoi_path,
-                target_crs,
-                template_meta,
-                cfg["raster"]["target_res"],
-                output_dir,
-                cleanup_intermediates=cleanup_intermediates,
+                spec, aoi_path, grid, output_dir, cleanup_intermediates=cleanup_intermediates
             )
         except Exception as exc:
-            LOG.warning("Failed processing %s: %s", spec.key, exc)
+            failures.append(f"{spec.key}: {type(exc).__name__}: {exc}")
+    if failures:
+        raise RuntimeError(
+            "Could not prepare every configured source:\n" + "\n".join(f"  - {f}" for f in failures)
+        )
 
+    if cleanup_intermediates:
+        _cleanup_intermediates(output_dir)
     return outputs
 
 
@@ -401,6 +349,14 @@ def _burn_transform(values: np.ndarray) -> np.ndarray:
     values = np.asarray(values).copy()
     values[~np.isin(values, [2, 3, 4])] = 1
     return values
+
+
+def _write_field(grid, output_dir: str, name: str) -> None:
+    """Write a node field as ESRI ASCII, refusing values no reader can parse."""
+    bad = int(np.count_nonzero(~np.isfinite(np.asarray(grid.at_node[name], dtype=float))))
+    if bad:
+        raise ValueError(f"{name} has {bad} non-finite values; refusing to write {name}.asc")
+    write_ascii_field(os.path.join(output_dir, f"{name}.asc"), grid, name)
 
 
 def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
@@ -453,11 +409,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         )
         # Persist canonical values from the grid so scaled/transformed fields
         # (e.g., soil__thickness from cm -> m) are reflected in output ASCII.
-        write_ascii_field(
-            os.path.join(output_dir, f"{spec.field_name}.asc"),
-            grid,
-            spec.field_name,
-        )
+        _write_field(grid, output_dir, spec.field_name)
 
     landcover_keys = list(cfg.get("feature_sources", {}).get("landcover", {}).keys())
     for key in landcover_keys:
@@ -486,85 +438,74 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         if name not in grid.at_node:
             raise ValueError(f"Missing required field: {name}")
 
-    ksat = compute_ksat(
-        grid.at_node["pH"],
-        grid.at_node["clay__total"],
-        grid.at_node["silt__total"],
-        grid.at_node["cation__exchange_capacity"],
-    )
-    grid.add_field(
-        "soil__saturated_hydraulic_conductivity",
-        (ksat / 100) * 10,
-        at="node",
-        clobber=True,
-    )
-    write_ascii_field(
-        os.path.join(output_dir, "soil__saturated_hydraulic_conductivity.asc"),
-        grid,
-        "soil__saturated_hydraulic_conductivity",
-    )
+    # A cell missing any soil input is nodata in every soil-derived field. The
+    # formulas would otherwise turn -9999 inputs into huge or infinite numbers.
+    soil_missing = np.zeros(grid.number_of_nodes, dtype=bool)
+    for name in required:
+        soil_missing |= grid.at_node[name] == NODATA
 
-    transmissivity = compute_transmissivity(
-        grid.at_node["soil__saturated_hydraulic_conductivity"],
-        grid.at_node["soil__thickness"],
-    )
-    grid.add_field("soil__transmissivity", transmissivity, at="node", clobber=True)
-    write_ascii_field(
-        os.path.join(output_dir, "soil__transmissivity.asc"),
-        grid,
-        "soil__transmissivity",
-    )
+    def add_soil_field(name: str, values) -> None:
+        masked = np.where(soil_missing, NODATA, np.asarray(values, dtype=float))
+        grid.add_field(name, masked, at="node", clobber=True)
 
-    wsat = compute_saturated_water_content(
-        grid.at_node["dry__bulk_density"],
-        grid.at_node["clay__total"],
-        grid.at_node["silt__total"],
-    )
-    grid.add_field("saturated__water_content", wsat, at="node", clobber=True)
-    write_ascii_field(
-        os.path.join(output_dir, "saturated__water_content.asc"),
-        grid,
-        "saturated__water_content",
-    )
-
-    soil_texture = compute_soil_texture(
-        grid.at_node["sand__total"],
-        grid.at_node["silt__total"],
-        grid.at_node["clay__total"],
-    )
-    grid.add_field("soil__texture", soil_texture, at="node", clobber=True)
-    write_ascii_field(os.path.join(output_dir, "soil__texture.asc"), grid, "soil__texture")
-
-    porosity, theta_fc, theta_wp, phi = compute_fc_wp_arrays(
-        grid.at_node["soil__texture"],
-        grid.at_node["saturated__water_content"],
-    )
-    grid.add_field("field__capacity", theta_fc, at="node", clobber=True)
-    grid.add_field("wilting__point", theta_wp, at="node", clobber=True)
-    grid.add_field("porosity", porosity, at="node", clobber=True)
-    grid.add_field("soil__internal_friction_angle", phi, at="node", clobber=True)
-
-    if "landcover" in grid.at_node:
-        adjusted_phi = adjust_internal_friction_angle(
-            grid.at_node["landcover"],
-            grid.at_node["soil__internal_friction_angle"],
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        ksat = compute_ksat(
+            grid.at_node["pH"],
+            grid.at_node["clay__total"],
+            grid.at_node["silt__total"],
+            grid.at_node["cation__exchange_capacity"],
         )
-        grid.at_node["soil__internal_friction_angle"] = adjusted_phi
+        add_soil_field("soil__saturated_hydraulic_conductivity", (ksat / 100) * 10)
+        add_soil_field(
+            "soil__transmissivity",
+            compute_transmissivity(
+                grid.at_node["soil__saturated_hydraulic_conductivity"],
+                grid.at_node["soil__thickness"],
+            ),
+        )
+        add_soil_field(
+            "saturated__water_content",
+            compute_saturated_water_content(
+                grid.at_node["dry__bulk_density"],
+                grid.at_node["clay__total"],
+                grid.at_node["silt__total"],
+            ),
+        )
+        add_soil_field(
+            "soil__texture",
+            compute_soil_texture(
+                grid.at_node["sand__total"],
+                grid.at_node["silt__total"],
+                grid.at_node["clay__total"],
+            ),
+        )
+        porosity, theta_fc, theta_wp, phi = compute_fc_wp_arrays(
+            grid.at_node["soil__texture"],
+            grid.at_node["saturated__water_content"],
+        )
+        if "landcover" in grid.at_node:
+            unclassified = phi == NODATA
+            phi = adjust_internal_friction_angle(grid.at_node["landcover"], phi)
+            phi[unclassified] = NODATA
+        add_soil_field("field__capacity", theta_fc)
+        add_soil_field("wilting__point", theta_wp)
+        add_soil_field("porosity", porosity)
+        add_soil_field("soil__internal_friction_angle", phi)
+        density = compute_soil_density(grid.at_node["dry__bulk_density"], grid.at_node["porosity"])
+        add_soil_field("soil__density", np.where(grid.at_node["porosity"] == NODATA, NODATA, density))
 
-    write_ascii_field(os.path.join(output_dir, "field__capacity.asc"), grid, "field__capacity")
-    write_ascii_field(os.path.join(output_dir, "wilting__point.asc"), grid, "wilting__point")
-    write_ascii_field(os.path.join(output_dir, "porosity.asc"), grid, "porosity")
-    write_ascii_field(
-        os.path.join(output_dir, "soil__internal_friction_angle.asc"),
-        grid,
+    for name in (
+        "soil__saturated_hydraulic_conductivity",
+        "soil__transmissivity",
+        "saturated__water_content",
+        "soil__texture",
+        "field__capacity",
+        "wilting__point",
+        "porosity",
         "soil__internal_friction_angle",
-    )
-
-    density = compute_soil_density(
-        grid.at_node["dry__bulk_density"], grid.at_node["porosity"]
-    )
-    grid.add_field("soil__density", density, at="node", clobber=True)
-    write_ascii_field(os.path.join(output_dir, "soil__density.asc"), grid, "soil__density")
+        "soil__density",
+    ):
+        _write_field(grid, output_dir, name)
 
     if "landcover" in grid.at_node:
         landcover = grid.at_node["landcover"]
@@ -576,34 +517,16 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         grid.add_field("soil__maximum_total_cohesion", c_max, at="node", clobber=True)
         grid.add_field("soil__mode_total_cohesion", c_mode, at="node", clobber=True)
 
-        write_ascii_field(
-            os.path.join(output_dir, "soil__minimum_total_cohesion.asc"),
-            grid,
-            "soil__minimum_total_cohesion",
-        )
-        write_ascii_field(
-            os.path.join(output_dir, "soil__maximum_total_cohesion.asc"),
-            grid,
-            "soil__maximum_total_cohesion",
-        )
-        write_ascii_field(
-            os.path.join(output_dir, "soil__mode_total_cohesion.asc"),
-            grid,
-            "soil__mode_total_cohesion",
-        )
+        vegetation_type = vegtype(landcover, NODATA, 3, 2, 1, 0)
+        grid.add_field("vegetation__plant_functional_type", vegetation_type, at="node", clobber=True)
 
-        vegetation_type = vegtype(landcover, -9999.0, 3, 2, 1, 0)
-        grid.add_field(
+        for name in (
+            "soil__minimum_total_cohesion",
+            "soil__maximum_total_cohesion",
+            "soil__mode_total_cohesion",
             "vegetation__plant_functional_type",
-            vegetation_type,
-            at="node",
-            clobber=True,
-        )
-        write_ascii_field(
-            os.path.join(output_dir, "vegetation__plant_functional_type.asc"),
-            grid,
-            "vegetation__plant_functional_type",
-        )
+        ):
+            _write_field(grid, output_dir, name)
 
     return grid
 

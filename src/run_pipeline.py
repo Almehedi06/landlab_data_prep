@@ -4,8 +4,7 @@ import argparse
 import logging
 from pathlib import Path
 
-import geopandas as gpd
-
+from analysis_grid import grid_from_config
 from export_ascii_to_tif import export_ascii_dir_to_tifs
 from pipeline import load_config, run_landlab_pipeline, run_raster_pipeline
 
@@ -20,7 +19,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-intermediates",
         action="store_true",
-        help="Keep intermediate .tif/.zip files in the output directory.",
+        help="Keep downloads and aligned intermediates (_downloads/, _aligned/).",
     )
     parser.add_argument(
         "--raster-only",
@@ -40,17 +39,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _resolve_output_crs(cfg: dict) -> str | None:
-    aoi_path = cfg.get("aoi", {}).get("aoi")
-    if not aoi_path:
-        return None
-    gdf = gpd.read_file(aoi_path)
-    if gdf.crs is None:
-        return None
-    epsg = gdf.crs.to_epsg()
-    if epsg is not None:
-        return f"EPSG:{epsg}"
-    return gdf.crs.to_wkt()
+def _resolve_output_crs(cfg: dict) -> str:
+    # Exported GeoTIFFs sit on the analysis grid, so they carry its CRS.
+    return grid_from_config(cfg).crs
 
 
 def main() -> None:

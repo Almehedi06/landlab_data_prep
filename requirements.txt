@@ -8,4 +8,5 @@ shapely>=2.0
 pyproj>=3.6
 landlab>=2.8
 bmi-topography>=0.5
+pystac-client>=0.7
 pytest>=8.0
