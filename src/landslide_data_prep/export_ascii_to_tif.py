@@ -2,38 +2,22 @@ from __future__ import annotations
 
 import argparse
 import glob
-import os
 from pathlib import Path
 
 import numpy as np
 import rasterio
-import yaml
 
-from analysis_grid import grid_from_config
-
-
-def _load_config(config_path: str | None) -> dict:
-    if not config_path:
-        return {}
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+from landslide_data_prep.analysis_grid import grid_from_config
+from landslide_data_prep.config import ConfigError, load_config
 
 
-def _resolve_output_dir(config_path: str | None, output_dir: str | None) -> Path:
+def _resolve_output_dir(cfg: dict, output_dir: str | None) -> Path:
     if output_dir:
         return Path(output_dir)
-    cfg = _load_config(config_path)
-    out = cfg.get("paths", {}).get("output_dir")
+    out = (cfg.get("paths") or {}).get("output_dir")
     if not out:
-        raise ValueError("Output directory not provided and not found in config.")
+        raise ValueError("No output directory: pass --output-dir or set paths.output_dir.")
     return Path(out)
-
-
-def _resolve_crs(config_path: str | None) -> str:
-    """CRS of the analysis grid the config defines; ESRI ASCII files carry none."""
-    if not config_path:
-        raise ValueError("--config is required: the exported CRS comes from its analysis grid.")
-    return grid_from_config(_load_config(config_path)).crs
 
 
 def _asc_to_tif(asc_path: Path, tif_path: Path, overwrite: bool, crs: str | None) -> bool:
@@ -107,9 +91,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    out_dir = _resolve_output_dir(args.config, args.output_dir)
+    try:
+        cfg = load_config(args.config, "export")
+    except (ConfigError, FileNotFoundError) as exc:
+        raise SystemExit(str(exc)) from None
+    out_dir = _resolve_output_dir(cfg, args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    crs = _resolve_crs(args.config)
+    # ESRI ASCII grids carry no CRS; the analysis grid the config defines does.
+    crs = grid_from_config(cfg).crs
 
     exported, skipped = export_ascii_dir_to_tifs(
         out_dir,

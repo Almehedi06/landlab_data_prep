@@ -5,22 +5,21 @@ import logging
 import os
 from typing import Callable
 
-import geopandas as gpd
 import numpy as np
-import yaml
 
-from dem import fetch_dem
-from downloads import download_file, extract_first_tif, extract_tif_by_suffix
-from landlab_io import add_ascii_field, load_grid, read_nodata_value, write_ascii_field
-from preflight import (
+from landslide_data_prep.config import validate_config
+from landslide_data_prep.dem import fetch_dem
+from landslide_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix
+from landslide_data_prep.landlab_io import add_ascii_field, load_grid, read_nodata_value, write_ascii_field
+from landslide_data_prep.preflight import (
     ensure_output_dir_writable,
     load_and_validate_aoi,
     validate_aoi_overlaps_raster,
     validate_raster_path,
 )
-from analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
-from reproject_and_resample import convert_to_ascii
-from soil_features import (
+from landslide_data_prep.analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
+from landslide_data_prep.reproject_and_resample import convert_to_ascii
+from landslide_data_prep.soil_features import (
     compute_fc_wp_arrays,
     compute_ksat,
     compute_saturated_water_content,
@@ -28,7 +27,7 @@ from soil_features import (
     compute_soil_texture,
     compute_transmissivity,
 )
-from vegetation_features import (
+from landslide_data_prep.vegetation_features import (
     adjust_internal_friction_angle,
     compute_cohesion,
     rootcohesion,
@@ -60,26 +59,18 @@ class FieldSpec:
     transform: Callable | None = None
 
 
-def load_config(config_path: str) -> dict:
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
-
-
 def validate_pipeline_inputs(cfg: dict) -> None:
+    """Everything checkable before a download: config structure, AOI, grid and local files."""
+    validate_config(cfg, "pipeline")
     aoi_path = cfg["aoi"]["aoi"]
     load_and_validate_aoi(aoi_path)
     ensure_output_dir_writable(cfg["paths"]["output_dir"])
+    grid_from_config(cfg)
 
-    grid_from_config(cfg)  # a missing or invalid grid fails before anything downloads
-
-    dem_cfg = cfg.get("dem", {})
-    dem_source = str(dem_cfg.get("source", "bmi-topography")).lower()
-    if dem_source == "local":
-        dem_path = dem_cfg.get("path")
-        if not dem_path:
-            raise ValueError("dem.source='local' requires dem.path in config.")
-        validate_raster_path(dem_path, label="DEM")
-        validate_aoi_overlaps_raster(aoi_path, dem_path, label="DEM")
+    dem_cfg = cfg["dem"]
+    if dem_cfg["source"] == "local":
+        validate_raster_path(dem_cfg["path"], label="DEM")
+        validate_aoi_overlaps_raster(aoi_path, dem_cfg["path"], label="DEM")
 
     for spec in build_sources_from_config(cfg):
         if isinstance(spec.uri, list):
@@ -104,7 +95,7 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
             SourceSpec(
                 key=key,
                 uri=info["url"],
-                resampling=info.get("resampling", cfg["raster"]["resampling_method"]),
+                resampling=info["resampling"],
             )
         )
 
@@ -113,21 +104,21 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
             SourceSpec(
                 key=key,
                 uri=info["url"],
-                resampling=info.get("resampling", "nearest"),
-                unzip=info.get("unzip", True),
+                resampling=info["resampling"],
+                unzip=info["unzip"],
             )
         )
 
-    bs = cfg.get("burn_severity", {})
-    src = bs.get("source", "local").lower()
-    local_path = os.path.join(bs["local"]["path"], bs["local"]["filename"])
+    bs = cfg["burn_severity"]
+    src = bs["source"]
+    local_path = os.path.join(bs["local"]["path"], bs["local"]["filename"]) if "local" in bs else None
 
     if src == "local":
         sources.append(
             SourceSpec(
                 key="burn_severity",
                 uri=local_path,
-                resampling=bs["local"].get("resampling", "nearest"),
+                resampling=bs["local"]["resampling"],
             )
         )
     elif src in {"remote", "remote_then_local", "auto"}:
@@ -151,7 +142,7 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
             SourceSpec(
                 key="burn_severity",
                 uri=all_candidates,
-                resampling=bs["remote"].get("resampling", "nearest"),
+                resampling=bs["remote"]["resampling"],
                 unzip=True,
             )
         )
@@ -161,17 +152,17 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
             f"{src!r}. Expected one of: local, remote, remote_then_local, auto."
         )
 
-    dn = cfg.get("dnbr", {})
-    if dn and dn.get("enabled", True):
-        dn_src = dn.get("source", "local").lower()
-        dn_local_path = os.path.join(dn["local"]["path"], dn["local"]["filename"])
+    dn = cfg.get("dnbr") or {}
+    if dn.get("enabled") is True:
+        dn_src = dn["source"]
+        dn_local_path = os.path.join(dn["local"]["path"], dn["local"]["filename"]) if "local" in dn else None
 
         if dn_src == "local":
             sources.append(
                 SourceSpec(
                     key="dnbr",
                     uri=dn_local_path,
-                    resampling=dn["local"].get("resampling", "bilinear"),
+                    resampling=dn["local"]["resampling"],
                 )
             )
         elif dn_src in {"remote", "remote_then_local", "auto"}:
@@ -203,7 +194,7 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
                 SourceSpec(
                     key="dnbr",
                     uri=dn_all_candidates,
-                    resampling=dn["remote"].get("resampling", "bilinear"),
+                    resampling=dn["remote"]["resampling"],
                     unzip=True,
                     tif_suffix="_dnbr.tif",
                 )
@@ -217,54 +208,53 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
     return sources
 
 
-def _resolve_single_source(spec: SourceSpec, output_dir: str) -> str:
+def _resolve_single_source(spec: SourceSpec, cache_dir: str | None, work_dir: str) -> str:
     uri = spec.uri
     if isinstance(uri, list):
         raise TypeError("Expected a single URI, got list")
 
-    if uri.startswith("http"):
-        local_path = os.path.join(output_dir, os.path.basename(uri))
-        download_file(uri, local_path)
-        if uri.lower().endswith(".zip") or spec.unzip:
-            extract_dir = os.path.join(output_dir, f"unzipped_{spec.key}")
-            if spec.tif_suffix:
-                return extract_tif_by_suffix(local_path, extract_dir, spec.tif_suffix)
-            return extract_first_tif(local_path, extract_dir)
-        return local_path
+    if uri.startswith(("http://", "https://")):
+        if not cache_dir:
+            raise ValueError(f"{spec.key}: {uri} downloads, which needs paths.cache_dir in the config")
+        local = cached_download(uri, cache_dir)
+        if local.suffix.lower() != ".zip" and not spec.unzip:
+            return str(local)
+        return str(_tif_from_zip(local, os.path.join(cache_dir, f"{local.stem}_extracted"), spec))
 
     if not os.path.exists(uri):
         raise FileNotFoundError(f"Source not found: {uri}")
-
     if uri.lower().endswith(".zip"):
-        extract_dir = os.path.join(output_dir, f"unzipped_{spec.key}")
-        if spec.tif_suffix:
-            return extract_tif_by_suffix(uri, extract_dir, spec.tif_suffix)
-        return extract_first_tif(uri, extract_dir)
-
+        return str(_tif_from_zip(uri, os.path.join(work_dir, f"unzipped_{spec.key}"), spec))
     return uri
 
 
-def resolve_source_to_tif(spec: SourceSpec, output_dir: str) -> str:
-    if isinstance(spec.uri, list):
-        last_err = None
-        for candidate in spec.uri:
-            try:
-                return _resolve_single_source(
-                    SourceSpec(
-                        key=spec.key,
-                        uri=candidate,
-                        resampling=spec.resampling,
-                        unzip=spec.unzip,
-                        tif_suffix=spec.tif_suffix,
-                    ),
-                    output_dir,
-                )
-            except Exception as exc:
-                last_err = exc
-                continue
-        raise RuntimeError(f"Failed to resolve {spec.key}. Last error: {last_err}")
+def _tif_from_zip(zip_path, dest_dir: str, spec: SourceSpec):
+    if spec.tif_suffix:
+        return extract_tif_by_suffix(zip_path, dest_dir, spec.tif_suffix)
+    return extract_first_tif(zip_path, dest_dir)
 
-    return _resolve_single_source(spec, output_dir)
+
+def resolve_source_to_tif(spec: SourceSpec, cache_dir: str | None, work_dir: str) -> str:
+    """A local file or a cached download; for a candidate list, the first one that works."""
+    if not isinstance(spec.uri, list):
+        return _resolve_single_source(spec, cache_dir, work_dir)
+    errors: list[str] = []
+    for candidate in spec.uri:
+        try:
+            return _resolve_single_source(
+                SourceSpec(
+                    key=spec.key,
+                    uri=candidate,
+                    resampling=spec.resampling,
+                    unzip=spec.unzip,
+                    tif_suffix=spec.tif_suffix,
+                ),
+                cache_dir,
+                work_dir,
+            )
+        except Exception as exc:
+            errors.append(f"{candidate}: {exc}")
+    raise RuntimeError(f"No candidate worked for {spec.key}:\n" + "\n".join(f"    {e}" for e in errors))
 
 
 DOWNLOADS_SUBDIR = "_downloads"
@@ -295,9 +285,10 @@ def process_source(
     aoi_path: str,
     grid: Grid,
     output_dir: str,
+    cache_dir: str | None = None,
     cleanup_intermediates: bool = True,
 ) -> str:
-    src_path = resolve_source_to_tif(spec, os.path.join(output_dir, DOWNLOADS_SUBDIR))
+    src_path = resolve_source_to_tif(spec, cache_dir, os.path.join(output_dir, DOWNLOADS_SUBDIR))
     aligned = align_to_grid(
         src_path,
         os.path.join(output_dir, ALIGNED_SUBDIR, f"{spec.key}.tif"),
@@ -321,9 +312,10 @@ def run_raster_pipeline(cfg: dict, cleanup_intermediates: bool = True) -> dict:
     os.makedirs(output_dir, exist_ok=True)
     LOG.info("Analysis grid: %s", grid.as_dict())
     if "remote_sensing" in cfg:
-        LOG.info("The remote_sensing block is built separately: python scripts/remote_sensing_run.py")
+        LOG.info("The remote_sensing block is built separately: landslide-prep-hls")
 
-    dem_path = fetch_dem(aoi_path, cfg.get("dem", {}), output_dir)
+    cache_dir = cfg["paths"].get("cache_dir")
+    dem_path = fetch_dem(aoi_path, cfg["dem"], cache_dir)
     outputs = {"dem": process_dem(str(dem_path), aoi_path, grid, output_dir)}
 
     # Every configured source is required. Collect all failures so one run shows them all.
@@ -331,7 +323,7 @@ def run_raster_pipeline(cfg: dict, cleanup_intermediates: bool = True) -> dict:
     for spec in build_sources_from_config(cfg):
         try:
             outputs[spec.key] = process_source(
-                spec, aoi_path, grid, output_dir, cleanup_intermediates=cleanup_intermediates
+                spec, aoi_path, grid, output_dir, cache_dir=cache_dir, cleanup_intermediates=cleanup_intermediates
             )
         except Exception as exc:
             failures.append(f"{spec.key}: {type(exc).__name__}: {exc}")
@@ -386,8 +378,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         ),
     }
 
-    dn = cfg.get("dnbr", {})
-    if dn and dn.get("enabled", True):
+    if (cfg.get("dnbr") or {}).get("enabled") is True:
         field_map["dnbr"] = FieldSpec("dnbr", "burn__dnbr")
 
     for source_key, spec in field_map.items():

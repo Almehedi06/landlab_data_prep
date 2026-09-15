@@ -20,12 +20,12 @@ import tempfile
 import numpy as np
 import rasterio
 
-from analysis_grid import Grid, align_to_grid, snap_grid
-from preflight import load_and_validate_aoi
-from remote_sensing import catalog
-from remote_sensing import indices as metrics
-from remote_sensing.composite import WindowComposite, composite_window
-from remote_sensing.config import RemoteSensingConfig
+from landslide_data_prep.analysis_grid import Grid, align_to_grid, snap_grid
+from landslide_data_prep.preflight import load_and_validate_aoi
+from landslide_data_prep.remote_sensing import catalog
+from landslide_data_prep.remote_sensing import indices as metrics
+from landslide_data_prep.remote_sensing.composite import WindowComposite, composite_window
+from landslide_data_prep.remote_sensing.config import RemoteSensingConfig
 
 LOG = logging.getLogger(__name__)
 
@@ -112,7 +112,6 @@ def build_hls_products(
 ) -> list[Product]:
     output_dir = Path(output_dir)
     native_dir = output_dir / NATIVE_SUBDIR
-    native_dir.mkdir(parents=True, exist_ok=True)
 
     aoi = load_and_validate_aoi(aoi_path)
     native = snap_grid(grid.bounds, grid.crs, catalog.NATIVE_RESOLUTION_M)
@@ -167,6 +166,8 @@ def build_hls_products(
     if drift:  # product_specs and _product_arrays must name the same products
         raise AssertionError(f"Product definitions disagree: {sorted(drift)}")
 
+    # Created only now, so a run that fails on search, credentials or reading leaves nothing behind.
+    native_dir.mkdir(parents=True, exist_ok=True)
     products: list[Product] = []
     for spec in specs:
         tags = _tags(spec, rs_cfg)

@@ -35,7 +35,7 @@ def main() -> None:
     if importlib.util.find_spec("fiona") is None:
         raise RuntimeError(
             "Missing dependency 'fiona'. Create env first: "
-            "'conda env create -f environment.yml && conda activate fire-debrisflow-ml'"
+            "'conda env create -f environment.yml && conda activate landslide-data-prep'"
         )
 
     root = Path(__file__).resolve().parents[1]
@@ -79,7 +79,7 @@ def main() -> None:
         cfg = {
             "aoi": {"aoi": str(aoi_path)},
             "paths": {"output_dir": str(output_dir)},
-            "raster": {"target_res": 30},
+            "raster": {"target_res": 30, "resampling_method": "bilinear"},
             "feature_sources": {"rasters": {}},
         }
         for key in soil_map.keys():

@@ -17,7 +17,7 @@ from rasterio.mask import mask
 from rasterio.transform import array_bounds
 from rasterio.warp import transform_geom
 
-from analysis_grid import Grid, check_on_grid, read_ascii_header
+from landslide_data_prep.analysis_grid import Grid, check_on_grid, read_ascii_header
 
 __all__ = ["clip_raster_to_shape", "convert_to_ascii", "read_ascii_header"]
 
@@ -94,9 +94,11 @@ def convert_to_ascii(tif_path: str, out_dir: str, grid: Grid | None = None) -> s
         f.write(f"yllcorner     {south}\n")
         f.write(f"cellsize      {abs(transform[0])}\n")
         f.write(f"NODATA_value  {nodata_value}\n")
-        for row in array:
-            row_out = [str(nodata_value) if np.isnan(v) else str(v) for v in row]
-            f.write(" ".join(row_out) + "\n")
+        # Vectorised: a per-cell Python loop is minutes per layer on 10 m fire grids.
+        if np.issubdtype(array.dtype, np.floating):
+            np.savetxt(f, np.where(np.isnan(array), nodata_value, array), fmt="%.9g")
+        else:
+            np.savetxt(f, array, fmt="%d")
 
     if grid is not None:
         check_on_grid(ascii_path, grid)

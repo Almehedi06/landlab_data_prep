@@ -4,9 +4,10 @@ import argparse
 import logging
 from pathlib import Path
 
-from analysis_grid import grid_from_config
-from export_ascii_to_tif import export_ascii_dir_to_tifs
-from pipeline import load_config, run_landlab_pipeline, run_raster_pipeline
+from landslide_data_prep.analysis_grid import grid_from_config
+from landslide_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
+from landslide_data_prep.config import ConfigError, load_config
+from landslide_data_prep.pipeline import run_landlab_pipeline, run_raster_pipeline
 
 
 def _parse_args() -> argparse.Namespace:
@@ -29,7 +30,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--export-final-tifs",
         action="store_true",
-        help="Export clean GeoTIFFs for DEM and landcover layers.",
+        help="Also write a GeoTIFF next to every ASCII output.",
     )
     parser.add_argument(
         "--log-level",
@@ -48,7 +49,10 @@ def main() -> None:
     args = _parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
-    cfg = load_config(args.config)
+    try:
+        cfg = load_config(args.config, "pipeline")
+    except (ConfigError, FileNotFoundError) as exc:
+        raise SystemExit(str(exc)) from None
     outputs = run_raster_pipeline(
         cfg,
         cleanup_intermediates=not args.keep_intermediates,

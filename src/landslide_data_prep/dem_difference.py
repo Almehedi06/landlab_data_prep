@@ -11,18 +11,10 @@ from pathlib import Path
 
 import numpy as np
 import rasterio
-import yaml
 
-from analysis_grid import DEM_RESAMPLING, NODATA, Grid, align_to_grid, check_on_grid, grid_from_config
-from reproject_and_resample import convert_to_ascii
-
-
-def _load_config(config_path: str) -> dict:
-    path = Path(config_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Config not found: {path}")
-    with open(path, "r") as f:
-        return yaml.safe_load(f) or {}
+from landslide_data_prep.analysis_grid import DEM_RESAMPLING, NODATA, Grid, align_to_grid, check_on_grid, grid_from_config
+from landslide_data_prep.config import ConfigError, load_config
+from landslide_data_prep.reproject_and_resample import convert_to_ascii
 
 
 def compute_difference(pre_tif: Path, post_tif: Path, diff_tif: Path, grid: Grid) -> Path:
@@ -54,7 +46,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--config", required=True, help="Config that defines the AOI and analysis grid.")
     args = parser.parse_args(argv)
 
-    cfg = _load_config(args.config)
+    try:
+        cfg = load_config(args.config, "dem_difference")
+    except (ConfigError, FileNotFoundError) as exc:
+        raise SystemExit(str(exc)) from None
     grid = grid_from_config(cfg)
     aoi_path = cfg["aoi"]["aoi"]
     out_dir = Path(args.out_dir)

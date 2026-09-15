@@ -6,10 +6,8 @@ import json
 from pathlib import Path
 import shutil
 
-import yaml
-
-from analysis_grid import ALIGNED_SUBDIR, Grid, GridMismatchError, align_to_grid, check_on_grid
-from preflight import (
+from landslide_data_prep.analysis_grid import ALIGNED_SUBDIR, Grid, GridMismatchError, align_to_grid, check_on_grid
+from landslide_data_prep.preflight import (
     ensure_output_dir_writable,
     load_and_validate_aoi,
     validate_aoi_overlaps_raster,
@@ -82,16 +80,6 @@ DEFAULT_SOIL_SPECS: dict[str, SoilVarSpec] = {
 }
 
 
-def load_yaml(path: str | Path | None) -> dict:
-    if not path:
-        return {}
-    p = Path(path)
-    if not p.exists():
-        return {}
-    with open(p, "r") as f:
-        return yaml.safe_load(f) or {}
-
-
 def parse_soil_keys(raw: str | None) -> list[str]:
     if not raw:
         return list(DEFAULT_SOIL_SPECS.keys())
@@ -155,49 +143,43 @@ def _validate_local_source_for_aoi(aoi_path: Path, uri: str, *, label: str) -> N
     validate_aoi_overlaps_raster(aoi_path, local_path, label=label)
 
 
-def _resolve_single_source(spec: RasterSourceSpec, output_dir: Path) -> Path:
-    from downloads import download_file, extract_first_tif
+def _resolve_single_source(spec: RasterSourceSpec, output_dir: Path, cache_dir: Path | None) -> Path:
+    from landslide_data_prep.downloads import cached_download, extract_first_tif
 
     uri = spec.uri
     if isinstance(uri, list):
         raise TypeError("Expected a single URI, got list.")
 
-    if uri.startswith("http"):
-        local_path = output_dir / Path(uri).name
-        download_file(uri, str(local_path))
-        if uri.lower().endswith(".zip") or spec.unzip:
-            extract_dir = output_dir / f"unzipped_{spec.key}"
-            return Path(extract_first_tif(str(local_path), str(extract_dir)))
-        return local_path
+    if uri.startswith(("http://", "https://")):
+        if cache_dir is None:
+            raise ValueError(f"{spec.key}: {uri} downloads, which needs paths.cache_dir in the config")
+        local = cached_download(uri, cache_dir)
+        if local.suffix.lower() == ".zip" or spec.unzip:
+            return extract_first_tif(local, Path(cache_dir) / f"{local.stem}_extracted")
+        return local
 
     local = Path(uri)
     if not local.exists():
         raise FileNotFoundError(f"Source not found: {local}")
     if local.suffix.lower() == ".zip":
-        extract_dir = output_dir / f"unzipped_{spec.key}"
-        return Path(extract_first_tif(str(local), str(extract_dir)))
+        return extract_first_tif(local, output_dir / f"unzipped_{spec.key}")
     return local
 
 
-def _resolve_source_to_tif(spec: RasterSourceSpec, output_dir: Path) -> Path:
-    if isinstance(spec.uri, list):
-        last_error: Exception | None = None
-        for candidate in spec.uri:
-            try:
-                return _resolve_single_source(
-                    RasterSourceSpec(
-                        key=spec.key,
-                        uri=candidate,
-                        resampling=spec.resampling,
-                        unzip=spec.unzip,
-                    ),
-                    output_dir,
-                )
-            except Exception as exc:  # pragma: no cover - best-effort fallback chain
-                last_error = exc
-                continue
-        raise RuntimeError(f"Failed resolving source {spec.key}. Last error: {last_error}")
-    return _resolve_single_source(spec, output_dir)
+def _resolve_source_to_tif(spec: RasterSourceSpec, output_dir: Path, cache_dir: Path | None) -> Path:
+    if not isinstance(spec.uri, list):
+        return _resolve_single_source(spec, output_dir, cache_dir)
+    errors: list[str] = []
+    for candidate in spec.uri:
+        try:
+            return _resolve_single_source(
+                RasterSourceSpec(key=spec.key, uri=candidate, resampling=spec.resampling, unzip=spec.unzip),
+                output_dir,
+                cache_dir,
+            )
+        except Exception as exc:
+            errors.append(f"{candidate}: {exc}")
+    raise RuntimeError(f"No candidate worked for {spec.key}: {errors}")
 
 
 def _cleanup_intermediates(output_dir: Path, keep_paths: set[Path]) -> None:
@@ -250,12 +232,13 @@ def fetch_soil_layers(
     aoi_path: Path,
     output_dir: Path,
     specs: list[SoilVarSpec],
+    cache_dir: Path | None = None,
     clip_to_aoi: bool = True,
     overwrite: bool = False,
     keep_intermediates: bool = False,
 ) -> Path:
     try:
-        from reproject_and_resample import clip_raster_to_shape
+        from landslide_data_prep.reproject_and_resample import clip_raster_to_shape
     except ModuleNotFoundError as exc:
         if exc.name == "fiona":
             raise ImportError(
@@ -291,7 +274,7 @@ def fetch_soil_layers(
 
         src_tif = _resolve_source_to_tif(
             RasterSourceSpec(key=spec.key, uri=spec.url, resampling=spec.resampling),
-            output_dir,
+            output_dir, cache_dir,
         )
         out_tif = src_tif
         if clip_to_aoi:
@@ -299,7 +282,10 @@ def fetch_soil_layers(
 
         if final_tif.exists():
             final_tif.unlink()
-        out_tif.replace(final_tif)
+        if out_tif == src_tif:
+            shutil.copyfile(src_tif, final_tif)  # never move a user's input file or a cached download
+        else:
+            out_tif.replace(final_tif)
         keep_paths.add(final_tif)
 
         layers.append(
@@ -338,6 +324,7 @@ def harmonize_soil_layers(
     specs: list[SoilVarSpec],
     grid: Grid,
     source_dir: Path | None = None,
+    cache_dir: Path | None = None,
     output_format: str = "both",
     overwrite: bool = False,
     keep_intermediates: bool = False,
@@ -351,7 +338,7 @@ def harmonize_soil_layers(
         raise ValueError(f"Unsupported output_format: {output_format}")
 
     try:
-        from reproject_and_resample import convert_to_ascii
+        from landslide_data_prep.reproject_and_resample import convert_to_ascii
     except ModuleNotFoundError as exc:
         if exc.name == "fiona":
             raise ImportError(
@@ -385,7 +372,7 @@ def harmonize_soil_layers(
             layers.append(_layer_record(spec, None, out_asc, out_tif, export_asc, export_tif, "skipped_existing"))
             continue
 
-        source_tif = _soil_source_tif(spec, aoi_path, output_dir, source_dir)
+        source_tif = _soil_source_tif(spec, aoi_path, output_dir, source_dir, cache_dir)
         aligned = align_to_grid(
             source_tif,
             output_dir / ALIGNED_SUBDIR / f"{spec.key}.tif",
@@ -429,7 +416,7 @@ def harmonize_soil_layers(
 
 
 def _soil_source_tif(
-    spec: SoilVarSpec, aoi_path: Path, output_dir: Path, source_dir: Path | None
+    spec: SoilVarSpec, aoi_path: Path, output_dir: Path, source_dir: Path | None, cache_dir: Path | None
 ) -> Path:
     if source_dir is not None:
         candidate = source_dir / f"{spec.key}.tif"
@@ -441,7 +428,7 @@ def _soil_source_tif(
         _validate_local_source_for_aoi(aoi_path, spec.url, label=f"Soil source {spec.key}")
     return _resolve_source_to_tif(
         RasterSourceSpec(key=spec.key, uri=spec.url, resampling=spec.resampling),
-        output_dir,
+        output_dir, cache_dir,
     )
 
 

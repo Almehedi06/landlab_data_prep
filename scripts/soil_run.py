@@ -8,7 +8,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from soil_data.cli_run import main
+from landslide_data_prep.soil_data.cli_run import main
 
 
 if __name__ == "__main__":

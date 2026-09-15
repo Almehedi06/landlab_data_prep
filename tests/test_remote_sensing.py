@@ -19,25 +19,25 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from analysis_grid import check_on_grid, grid_for_aoi, snap_grid
-from remote_sensing import catalog, composite
-from remote_sensing.catalog import (
+from landslide_data_prep.analysis_grid import check_on_grid, grid_for_aoi, snap_grid
+from landslide_data_prep.remote_sensing import catalog, composite
+from landslide_data_prep.remote_sensing.catalog import (
     EarthdataAuthError,
     Scene,
     earthdata_gdal_options,
     per_thread_options_factory,
     scenes_from_items,
 )
-from remote_sensing.composite import check_scale, decode_vi, group_by_solar_day
-from remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
-from remote_sensing.core import (
+from landslide_data_prep.remote_sensing.composite import check_scale, decode_vi, group_by_solar_day
+from landslide_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
+from landslide_data_prep.remote_sensing.core import (
     MANIFEST_NAME,
     EmptyWindowError,
     build_hls_products,
     product_specs,
 )
-from remote_sensing.indices import difference, dnbr, rdnbr
-from remote_sensing.qa import clear_mask
+from landslide_data_prep.remote_sensing.indices import difference, dnbr, rdnbr
+from landslide_data_prep.remote_sensing.qa import clear_mask
 
 UTC = timezone.utc
 INDICES = ("NBR", "NDVI", "NDMI")
@@ -568,10 +568,10 @@ def _shared_config(tmp_path: Path, target_res: float) -> tuple[dict, Path]:
 
 
 def test_every_command_lands_on_the_same_grid(tmp_path: Path, monkeypatch) -> None:
-    from analysis_grid import grid_from_config
-    from pipeline import run_raster_pipeline
-    from remote_sensing import cli_run
-    from soil_data.core import SoilVarSpec, harmonize_soil_layers
+    from landslide_data_prep.analysis_grid import grid_from_config
+    from landslide_data_prep.pipeline import run_raster_pipeline
+    from landslide_data_prep.remote_sensing import cli_run
+    from landslide_data_prep.soil_data.core import SoilVarSpec, harmonize_soil_layers
 
     factory = _synthetic_scenes(tmp_path / "hls")
     monkeypatch.setattr(catalog, "search_hls_vi", factory.search)

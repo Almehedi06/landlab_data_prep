@@ -14,8 +14,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from analysis_grid import GridMismatchError, check_on_grid, grid_for_aoi
-from soil_data.core import (
+from landslide_data_prep.analysis_grid import GridMismatchError, check_on_grid, grid_for_aoi
+from landslide_data_prep.soil_data.core import (
     DEFAULT_SOIL_SPECS,
     SoilVarSpec,
     harmonize_soil_layers,

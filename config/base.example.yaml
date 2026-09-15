@@ -1,10 +1,10 @@
 # ============================================================================
 # landslide-data-prep config template. Copy it to config/base.yaml
 # (git-ignored) and edit the values for your event: one event at a time.
-# Every command reads that file (default: config/base.yaml):
-#   python src/run_pipeline.py --config config/base.yaml --export-final-tifs
-#   python scripts/soil_run.py --config config/base.yaml
-#   python scripts/remote_sensing_run.py --config config/base.yaml
+# Every command reads that file with --config:
+#   landslide-prep-pipeline --config config/base.yaml --export-final-tifs
+#   landslide-prep-soil --config config/base.yaml
+#   landslide-prep-hls --config config/base.yaml
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -15,6 +15,7 @@ aoi:
 
 paths:
   output_dir: /abs/path/to/outputs
+  cache_dir: /abs/path/to/cache           # downloads are kept here; required when any source downloads
 
 fire:                     # read only to build remote BAER download names
   name: Example Fire
@@ -38,10 +39,8 @@ dem:
   path: /abs/path/to/local_dem.tif   # used only when source: local
   # Used only when source: bmi-topography
   dem_type: USGS10m
-  output_format: GTiff
   buffer_deg: 0.05
-  cache_dir: /abs/path/to/cache
-  api_key: ""                        # OpenTopography key, or set USGS_TOPO_API_KEY
+  api_key: ""                        # OpenTopography key; USGS_TOPO_API_KEY or OPENTOPOGRAPHY_API_KEY override it
 
 # ----------------------------------------------------------------------------
 # Burn severity, categorical SBS: source is local, remote, remote_then_local or auto
@@ -109,7 +108,7 @@ feature_sources:
 
 # ----------------------------------------------------------------------------
 # Remote sensing: NASA HLS vegetation indices, built by
-# scripts/remote_sensing_run.py; the Landlab pipeline ignores this block.
+# landslide-prep-hls; the Landlab pipeline ignores this block.
 # Uncomment to enable. Every key is required except resampling, and unknown
 # keys are an error. Needs EARTHDATA_TOKEN or a ~/.netrc entry for
 # urs.earthdata.nasa.gov. Keep both windows in the same season.
