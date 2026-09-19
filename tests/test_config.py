@@ -11,7 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from landslide_data_prep.config import ConfigError, load_config, validate_config
+from landlab_data_prep.config import ConfigError, load_config, validate_config
 
 TEMPLATE = ROOT / "config" / "base.example.yaml"
 

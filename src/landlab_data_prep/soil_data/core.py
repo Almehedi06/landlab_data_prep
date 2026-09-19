@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 import shutil
 
-from landslide_data_prep.analysis_grid import ALIGNED_SUBDIR, Grid, GridMismatchError, align_to_grid, check_on_grid
-from landslide_data_prep.preflight import (
+from landlab_data_prep.analysis_grid import ALIGNED_SUBDIR, Grid, GridMismatchError, align_to_grid, check_on_grid
+from landlab_data_prep.preflight import (
     ensure_output_dir_writable,
     load_and_validate_aoi,
     validate_aoi_overlaps_raster,
@@ -144,7 +144,7 @@ def _validate_local_source_for_aoi(aoi_path: Path, uri: str, *, label: str) -> N
 
 
 def _resolve_single_source(spec: RasterSourceSpec, output_dir: Path, cache_dir: Path | None) -> Path:
-    from landslide_data_prep.downloads import cached_download, extract_first_tif
+    from landlab_data_prep.downloads import cached_download, extract_first_tif
 
     uri = spec.uri
     if isinstance(uri, list):
@@ -238,7 +238,7 @@ def fetch_soil_layers(
     keep_intermediates: bool = False,
 ) -> Path:
     try:
-        from landslide_data_prep.reproject_and_resample import clip_raster_to_shape
+        from landlab_data_prep.reproject_and_resample import clip_raster_to_shape
     except ModuleNotFoundError as exc:
         if exc.name == "fiona":
             raise ImportError(
@@ -338,7 +338,7 @@ def harmonize_soil_layers(
         raise ValueError(f"Unsupported output_format: {output_format}")
 
     try:
-        from landslide_data_prep.reproject_and_resample import convert_to_ascii
+        from landlab_data_prep.reproject_and_resample import convert_to_ascii
     except ModuleNotFoundError as exc:
         if exc.name == "fiona":
             raise ImportError(

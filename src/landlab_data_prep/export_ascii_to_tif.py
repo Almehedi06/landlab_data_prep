@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
-from landslide_data_prep.analysis_grid import grid_from_config
-from landslide_data_prep.config import ConfigError, load_config
+from landlab_data_prep.analysis_grid import grid_from_config
+from landlab_data_prep.config import ConfigError, load_config
 
 
 def _resolve_output_dir(cfg: dict, output_dir: str | None) -> Path:

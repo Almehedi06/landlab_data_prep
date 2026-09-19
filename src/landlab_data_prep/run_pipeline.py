@@ -4,10 +4,10 @@ import argparse
 import logging
 from pathlib import Path
 
-from landslide_data_prep.analysis_grid import grid_from_config
-from landslide_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
-from landslide_data_prep.config import ConfigError, load_config
-from landslide_data_prep.pipeline import run_landlab_pipeline, run_raster_pipeline
+from landlab_data_prep.analysis_grid import grid_from_config
+from landlab_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
+from landlab_data_prep.config import ConfigError, load_config
+from landlab_data_prep.pipeline import run_landlab_pipeline, run_raster_pipeline
 
 
 def _parse_args() -> argparse.Namespace:

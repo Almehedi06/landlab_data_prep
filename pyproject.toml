@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "landslide-data-prep"
+name = "landlab_data_prep"
 dynamic = ["version"]
 description = "AOI-based geospatial data preparation for postfire debris-flow and landslide modeling."
 readme = "README.md"
@@ -26,20 +26,20 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-landslide-prep-pipeline = "landslide_data_prep.run_pipeline:main"
-landslide-prep-soil = "landslide_data_prep.soil_data.cli_run:main"
-landslide-prep-soil-fetch = "landslide_data_prep.soil_data.cli_fetch:main"
-landslide-prep-soil-align = "landslide_data_prep.soil_data.cli_harmonize:main"
-landslide-prep-hls = "landslide_data_prep.remote_sensing.cli_run:main"
-landslide-prep-dem-difference = "landslide_data_prep.dem_difference:main"
-landslide-prep-export-tifs = "landslide_data_prep.export_ascii_to_tif:main"
+landlab-prep-pipeline = "landlab_data_prep.run_pipeline:main"
+landlab-prep-soil = "landlab_data_prep.soil_data.cli_run:main"
+landlab-prep-soil-fetch = "landlab_data_prep.soil_data.cli_fetch:main"
+landlab-prep-soil-align = "landlab_data_prep.soil_data.cli_harmonize:main"
+landlab-prep-hls = "landlab_data_prep.remote_sensing.cli_run:main"
+landlab-prep-dem-difference = "landlab_data_prep.dem_difference:main"
+landlab-prep-export-tifs = "landlab_data_prep.export_ascii_to_tif:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "landslide_data_prep.__version__"}
+version = {attr = "landlab_data_prep.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["landslide_data_prep*"]
+include = ["landlab_data_prep*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

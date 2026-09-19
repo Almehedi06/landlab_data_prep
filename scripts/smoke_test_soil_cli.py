@@ -35,7 +35,7 @@ def main() -> None:
     if importlib.util.find_spec("fiona") is None:
         raise RuntimeError(
             "Missing dependency 'fiona'. Create env first: "
-            "'conda env create -f environment.yml && conda activate landslide-data-prep'"
+            "'conda env create -f environment.yml && conda activate landlab_data_prep'"
         )
 
     root = Path(__file__).resolve().parents[1]

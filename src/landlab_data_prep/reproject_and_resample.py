@@ -17,7 +17,7 @@ from rasterio.mask import mask
 from rasterio.transform import array_bounds
 from rasterio.warp import transform_geom
 
-from landslide_data_prep.analysis_grid import Grid, check_on_grid, read_ascii_header
+from landlab_data_prep.analysis_grid import Grid, check_on_grid, read_ascii_header
 
 __all__ = ["clip_raster_to_shape", "convert_to_ascii", "read_ascii_header"]
 

@@ -7,19 +7,19 @@ from typing import Callable
 
 import numpy as np
 
-from landslide_data_prep.config import validate_config
-from landslide_data_prep.dem import fetch_dem
-from landslide_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix
-from landslide_data_prep.landlab_io import add_ascii_field, load_grid, read_nodata_value, write_ascii_field
-from landslide_data_prep.preflight import (
+from landlab_data_prep.config import validate_config
+from landlab_data_prep.dem import fetch_dem
+from landlab_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix
+from landlab_data_prep.landlab_io import add_ascii_field, load_grid, read_nodata_value, write_ascii_field
+from landlab_data_prep.preflight import (
     ensure_output_dir_writable,
     load_and_validate_aoi,
     validate_aoi_overlaps_raster,
     validate_raster_path,
 )
-from landslide_data_prep.analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
-from landslide_data_prep.reproject_and_resample import convert_to_ascii
-from landslide_data_prep.soil_features import (
+from landlab_data_prep.analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
+from landlab_data_prep.reproject_and_resample import convert_to_ascii
+from landlab_data_prep.soil_features import (
     compute_fc_wp_arrays,
     compute_ksat,
     compute_saturated_water_content,
@@ -27,7 +27,7 @@ from landslide_data_prep.soil_features import (
     compute_soil_texture,
     compute_transmissivity,
 )
-from landslide_data_prep.vegetation_features import (
+from landlab_data_prep.vegetation_features import (
     adjust_internal_friction_angle,
     compute_cohesion,
     rootcohesion,
@@ -312,7 +312,7 @@ def run_raster_pipeline(cfg: dict, cleanup_intermediates: bool = True) -> dict:
     os.makedirs(output_dir, exist_ok=True)
     LOG.info("Analysis grid: %s", grid.as_dict())
     if "remote_sensing" in cfg:
-        LOG.info("The remote_sensing block is built separately: landslide-prep-hls")
+        LOG.info("The remote_sensing block is built separately: landlab-prep-hls")
 
     cache_dir = cfg["paths"].get("cache_dir")
     dem_path = fetch_dem(aoi_path, cfg["dem"], cache_dir)

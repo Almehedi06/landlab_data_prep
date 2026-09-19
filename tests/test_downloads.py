@@ -12,8 +12,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from landslide_data_prep import downloads
-from landslide_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix, extract_tifs
+from landlab_data_prep import downloads
+from landlab_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix, extract_tifs
 
 
 class FakeResponse:

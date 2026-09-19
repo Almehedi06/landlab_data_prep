@@ -1,4 +1,4 @@
-# landslide-data-prep
+# landlab_data_prep
 
 Prepares aligned geospatial inputs for postfire debris-flow and landslide
 modelling. From one YAML config it builds DEM, burn severity, soil and
@@ -11,7 +11,7 @@ On Linux, recreate the exact tested environment:
 
 ```bash
 conda env create -f environment.lock.yml
-conda activate landslide-data-prep
+conda activate landlab_data_prep
 pip install --no-deps -e .
 ```
 
@@ -22,7 +22,7 @@ On other platforms, use `environment.yml` instead of the lockfile.
 ```bash
 cp config/base.example.yaml config/base.yaml
 # edit config/base.yaml for your event, then:
-landslide-prep-pipeline --config config/base.yaml --export-final-tifs
+landlab-prep-pipeline --config config/base.yaml --export-final-tifs
 ```
 
 `config/base.yaml` is git-ignored and holds one event at a time. For another
@@ -32,13 +32,13 @@ event, edit its values rather than adding config files.
 
 | Command | From a clone, without installing | What it does |
 |---|---|---|
-| `landslide-prep-pipeline` | `python scripts/run_pipeline.py` | DEM, burn severity, soil and landcover on the grid, then Landlab fields |
-| `landslide-prep-soil` | `python scripts/soil_run.py` | Fetch soil layers and align them to the grid |
-| `landslide-prep-soil-fetch` | `python scripts/soil_fetch.py` | Fetch and crop soil layers only |
-| `landslide-prep-soil-align` | `python scripts/soil_harmonize.py` | Align already fetched soil layers |
-| `landslide-prep-hls` | `python scripts/remote_sensing_run.py` | HLS vegetation indices, described below |
-| `landslide-prep-dem-difference` | `python scripts/dem_difference.py` | Post-event minus pre-event DEM on the grid |
-| `landslide-prep-export-tifs` | `python scripts/export_tifs.py` | Convert a folder of ASCII grids to GeoTIFF |
+| `landlab-prep-pipeline` | `python scripts/run_pipeline.py` | DEM, burn severity, soil and landcover on the grid, then Landlab fields |
+| `landlab-prep-soil` | `python scripts/soil_run.py` | Fetch soil layers and align them to the grid |
+| `landlab-prep-soil-fetch` | `python scripts/soil_fetch.py` | Fetch and crop soil layers only |
+| `landlab-prep-soil-align` | `python scripts/soil_harmonize.py` | Align already fetched soil layers |
+| `landlab-prep-hls` | `python scripts/remote_sensing_run.py` | HLS vegetation indices, described below |
+| `landlab-prep-dem-difference` | `python scripts/dem_difference.py` | Post-event minus pre-event DEM on the grid |
+| `landlab-prep-export-tifs` | `python scripts/export_tifs.py` | Convert a folder of ASCII grids to GeoTIFF |
 
 Every command takes `--config`; `--help` lists the other options. The pipeline
 also takes `--raster-only` to stop before Landlab fields, `--export-final-tifs`
@@ -62,7 +62,7 @@ is present. `config/base.example.yaml` documents every key.
 | `burn_severity` | `source`, `local`, `remote` | `source` is `local`, `remote`, `remote_then_local` or `auto`. |
 | `dnbr` | `enabled`, `source`, `local`, `remote` | Continuous dNBR, skipped unless enabled. |
 | `feature_sources` | `rasters`, `landcover` | The seven SoLUS soil layers and one landcover layer. Each `url` is a local path or a URL. |
-| `remote_sensing` | see below | Only used by `landslide-prep-hls`. |
+| `remote_sensing` | see below | Only used by `landlab-prep-hls`. |
 
 **OpenTopography key.** Downloading a DEM needs an OpenTopography API key,
 looked up in this order: `USGS_TOPO_API_KEY`, `OPENTOPOGRAPHY_API_KEY`, then
@@ -141,7 +141,7 @@ chmod 600 ~/.netrc
 **Run.**
 
 ```bash
-landslide-prep-hls --config config/base.yaml
+landlab-prep-hls --config config/base.yaml
 ```
 
 GeoTIFFs on the analysis grid and a manifest are written to

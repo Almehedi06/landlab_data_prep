@@ -13,8 +13,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from landslide_data_prep import dem
-from landslide_data_prep.dem import MissingApiKeyError, fetch_dem, resolve_api_key
+from landlab_data_prep import dem
+from landlab_data_prep.dem import MissingApiKeyError, fetch_dem, resolve_api_key
 
 KEY = "0123456789abcdef0123456789abcdef"
 BMI = {"source": "bmi-topography", "dem_type": "USGS10m", "buffer_deg": 0.01, "api_key": KEY}

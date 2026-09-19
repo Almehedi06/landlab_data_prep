@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 - 2026-09-18
+
+The project is renamed from `landslide-data-prep` to `landlab_data_prep`.
+Nothing else changes.
+
+### Migrating from 0.2.0
+
+- Import `landlab_data_prep` instead of `landslide_data_prep`.
+- Commands are now `landlab-prep-*`, for example `landlab-prep-pipeline`.
+- The conda environment is now `landlab_data_prep`. Rename an existing one with
+  `conda rename -n landslide-data-prep landlab_data_prep`.
+- Reinstall with `pip install --no-deps -e .`. If 0.2.0 was installed, run
+  `pip uninstall landslide-data-prep` first so the old commands disappear.
+- The GitHub repositories move to `landlab_data_prep`. Old links redirect.
+
 ## 0.2.0 - 2026-09-15
 
 First version prepared for use by other people. Configs written for 0.1.0 need

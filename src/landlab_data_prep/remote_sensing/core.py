@@ -20,12 +20,12 @@ import tempfile
 import numpy as np
 import rasterio
 
-from landslide_data_prep.analysis_grid import Grid, align_to_grid, snap_grid
-from landslide_data_prep.preflight import load_and_validate_aoi
-from landslide_data_prep.remote_sensing import catalog
-from landslide_data_prep.remote_sensing import indices as metrics
-from landslide_data_prep.remote_sensing.composite import WindowComposite, composite_window
-from landslide_data_prep.remote_sensing.config import RemoteSensingConfig
+from landlab_data_prep.analysis_grid import Grid, align_to_grid, snap_grid
+from landlab_data_prep.preflight import load_and_validate_aoi
+from landlab_data_prep.remote_sensing import catalog
+from landlab_data_prep.remote_sensing import indices as metrics
+from landlab_data_prep.remote_sensing.composite import WindowComposite, composite_window
+from landlab_data_prep.remote_sensing.config import RemoteSensingConfig
 
 LOG = logging.getLogger(__name__)
 

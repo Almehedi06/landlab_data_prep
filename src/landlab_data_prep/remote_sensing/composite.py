@@ -18,9 +18,9 @@ import warnings
 import numpy as np
 import rasterio
 
-from landslide_data_prep.analysis_grid import Grid, read_on_grid
-from landslide_data_prep.remote_sensing.catalog import FMASK_ASSET, Scene
-from landslide_data_prep.remote_sensing.qa import FMASK_FILL, clear_mask
+from landlab_data_prep.analysis_grid import Grid, read_on_grid
+from landlab_data_prep.remote_sensing.catalog import FMASK_ASSET, Scene
+from landlab_data_prep.remote_sensing.qa import FMASK_FILL, clear_mask
 
 # HLS VI User Guide v2.0, product table: NDVI, NBR, NDMI are int16 with
 # scale 0.0001, fill -19999, valid range -1 to 1.

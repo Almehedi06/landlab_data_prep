@@ -13,14 +13,14 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from landslide_data_prep.pipeline import (
+from landlab_data_prep.pipeline import (
     build_sources_from_config,
     run_landlab_pipeline,
     run_raster_pipeline,
 )
-from landslide_data_prep.analysis_grid import check_on_grid, grid_from_config
-from landslide_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
-from landslide_data_prep.reproject_and_resample import clip_raster_to_shape, convert_to_ascii, read_ascii_header
+from landlab_data_prep.analysis_grid import check_on_grid, grid_from_config
+from landlab_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
+from landlab_data_prep.reproject_and_resample import clip_raster_to_shape, convert_to_ascii, read_ascii_header
 
 
 def _write_tif(path: Path, data: np.ndarray, transform, crs: str, nodata: float = -9999.0) -> None:
@@ -72,7 +72,7 @@ def test_clip_raster_to_shape_crops_on_the_source_grid(tmp_path: Path) -> None:
 
 
 def test_raster_pipeline_reports_every_failed_source(tmp_path: Path, monkeypatch) -> None:
-    from landslide_data_prep import pipeline
+    from landlab_data_prep import pipeline
 
     aoi = tmp_path / "aoi.shp"
     _write_aoi(aoi, (500010.0, 4099830.0, 500190.0, 4100010.0), "EPSG:32610")

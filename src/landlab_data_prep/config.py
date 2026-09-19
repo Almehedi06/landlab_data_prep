@@ -15,9 +15,9 @@ from typing import Any
 
 import yaml
 
-from landslide_data_prep.analysis_grid import RESAMPLING
-from landslide_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
-from landslide_data_prep.soil_data.core import DEFAULT_SOIL_SPECS
+from landlab_data_prep.analysis_grid import RESAMPLING
+from landlab_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
+from landlab_data_prep.soil_data.core import DEFAULT_SOIL_SPECS
 
 SOIL_KEYS = tuple(DEFAULT_SOIL_SPECS)
 SOURCE_KINDS = ("local", "remote", "remote_then_local", "auto")

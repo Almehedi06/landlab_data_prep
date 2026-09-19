@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from landslide_data_prep.analysis_grid import (
+from landlab_data_prep.analysis_grid import (
     NODATA,
     GridMismatchError,
     align_to_grid,
@@ -24,7 +24,7 @@ from landslide_data_prep.analysis_grid import (
     snap_grid,
     utm_crs_for,
 )
-from landslide_data_prep.reproject_and_resample import convert_to_ascii
+from landlab_data_prep.reproject_and_resample import convert_to_ascii
 
 CRS10 = "EPSG:32610"
 AOI_BOUNDS = (500010.0, 4099830.0, 500190.0, 4100010.0)  # multiples of 30 m: a 6x6 grid

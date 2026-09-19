@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from landslide_data_prep.config import ConfigError, load_config
-from landslide_data_prep.soil_data.core import (
+from landlab_data_prep.config import ConfigError, load_config
+from landlab_data_prep.soil_data.core import (
     fetch_soil_layers,
     parse_soil_keys,
     resolve_aoi_path,

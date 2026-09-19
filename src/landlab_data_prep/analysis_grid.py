@@ -26,7 +26,7 @@ from rasterio.features import geometry_mask
 from rasterio.transform import Affine
 from rasterio.vrt import WarpedVRT
 
-from landslide_data_prep.preflight import load_and_validate_aoi
+from landlab_data_prep.preflight import load_and_validate_aoi
 
 NODATA = -9999.0
 ALIGNED_SUBDIR = "_aligned"

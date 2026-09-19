@@ -1,10 +1,10 @@
 # ============================================================================
-# landslide-data-prep config template. Copy it to config/base.yaml
+# landlab_data_prep config template. Copy it to config/base.yaml
 # (git-ignored) and edit the values for your event: one event at a time.
 # Every command reads that file with --config:
-#   landslide-prep-pipeline --config config/base.yaml --export-final-tifs
-#   landslide-prep-soil --config config/base.yaml
-#   landslide-prep-hls --config config/base.yaml
+#   landlab-prep-pipeline --config config/base.yaml --export-final-tifs
+#   landlab-prep-soil --config config/base.yaml
+#   landlab-prep-hls --config config/base.yaml
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ feature_sources:
 
 # ----------------------------------------------------------------------------
 # Remote sensing: NASA HLS vegetation indices, built by
-# landslide-prep-hls; the Landlab pipeline ignores this block.
+# landlab-prep-hls; the Landlab pipeline ignores this block.
 # Uncomment to enable. Every key is required except resampling, and unknown
 # keys are an error. Needs EARTHDATA_TOKEN or a ~/.netrc entry for
 # urs.earthdata.nasa.gov. Keep both windows in the same season.

@@ -12,9 +12,9 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
-from landslide_data_prep.analysis_grid import DEM_RESAMPLING, NODATA, Grid, align_to_grid, check_on_grid, grid_from_config
-from landslide_data_prep.config import ConfigError, load_config
-from landslide_data_prep.reproject_and_resample import convert_to_ascii
+from landlab_data_prep.analysis_grid import DEM_RESAMPLING, NODATA, Grid, align_to_grid, check_on_grid, grid_from_config
+from landlab_data_prep.config import ConfigError, load_config
+from landlab_data_prep.reproject_and_resample import convert_to_ascii
 
 
 def compute_difference(pre_tif: Path, post_tif: Path, diff_tif: Path, grid: Grid) -> Path:

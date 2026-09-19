@@ -11,11 +11,11 @@ import logging
 from pathlib import Path
 import sys
 
-from landslide_data_prep.analysis_grid import grid_from_config
-from landslide_data_prep.config import ConfigError, load_config
-from landslide_data_prep.remote_sensing.catalog import EarthdataAuthError
-from landslide_data_prep.remote_sensing.config import parse_remote_sensing_config
-from landslide_data_prep.remote_sensing.core import (
+from landlab_data_prep.analysis_grid import grid_from_config
+from landlab_data_prep.config import ConfigError, load_config
+from landlab_data_prep.remote_sensing.catalog import EarthdataAuthError
+from landlab_data_prep.remote_sensing.config import parse_remote_sensing_config
+from landlab_data_prep.remote_sensing.core import (
     MANIFEST_NAME,
     REMOTE_SENSING_SUBDIR,
     EmptyWindowError,

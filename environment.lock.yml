@@ -1,7 +1,7 @@
 # Exact linux-64 environment, solved from environment.yml on 2026-09-15.
 # Recreate it with: conda env create -f environment.lock.yml
 # Other platforms: conda env create -f environment.yml
-name: landslide-data-prep
+name: landlab_data_prep
 channels:
   - conda-forge
 dependencies:
