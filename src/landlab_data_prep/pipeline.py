@@ -7,7 +7,7 @@ from typing import Callable
 
 import numpy as np
 
-from landlab_data_prep.config import validate_config
+from landlab_data_prep.config import load_config, validate_config
 from landlab_data_prep.dem import fetch_dem
 from landlab_data_prep.downloads import cached_download, extract_first_tif, extract_tif_by_suffix
 from landlab_data_prep.landlab_io import add_ascii_field, load_grid, read_nodata_value, write_ascii_field
@@ -45,6 +45,7 @@ class SourceSpec:
     resampling: str
     unzip: bool = False
     tif_suffix: str | None = None
+    missing_values: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ def build_sources_from_config(cfg: dict) -> list[SourceSpec]:
                 key=key,
                 uri=info["url"],
                 resampling=info["resampling"],
+                missing_values=tuple(info.get("missing_values", ())),
             )
         )
 
@@ -295,6 +297,7 @@ def process_source(
         grid,
         spec.resampling,
         aoi_path=aoi_path,
+        missing_values=spec.missing_values,
     )
     ascii_path = convert_to_ascii(str(aligned), output_dir, grid=grid)
 
@@ -313,6 +316,8 @@ def run_raster_pipeline(cfg: dict, cleanup_intermediates: bool = True) -> dict:
     LOG.info("Analysis grid: %s", grid.as_dict())
     if "remote_sensing" in cfg:
         LOG.info("The remote_sensing block is built separately: landlab-prep-hls")
+    if "prism" in cfg:
+        LOG.info("The prism block is built separately: landlab-prep-prism")
 
     cache_dir = cfg["paths"].get("cache_dir")
     dem_path = fetch_dem(aoi_path, cfg["dem"], cache_dir)
@@ -523,7 +528,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
 
 
 def run_pipeline(config_path: str, cleanup_intermediates: bool = True):
-    cfg = load_config(config_path)
+    cfg = load_config(config_path, "pipeline")
     outputs = run_raster_pipeline(cfg, cleanup_intermediates=cleanup_intermediates)
     grid = run_landlab_pipeline(cfg, outputs)
     return outputs, grid

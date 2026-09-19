@@ -115,6 +115,13 @@ def test_align_to_grid_masks_outside_aoi_and_never_invents_zeros(tmp_path: Path)
     assert data[5, 4] == NODATA  # inside the AOI but beyond the source: nodata, not a fake 0
 
 
+def test_missing_value_codes_need_nearest_resampling(tmp_path: Path) -> None:
+    grid = grid_for_aoi(_aoi(tmp_path / "aoi.shp", AOI_BOUNDS), 30.0)
+    src = _write(tmp_path / "k.tif", np.full((8, 8), 0.2, np.float32), from_origin(499980.0, 4100040.0, 30.0, 30.0))
+    with pytest.raises(ValueError, match="nearest or mode"):
+        align_to_grid(src, tmp_path / "out.tif", grid, "bilinear", missing_values=(-0.1,))
+
+
 def test_align_to_grid_rejects_no_overlap_and_self_overwrite(tmp_path: Path) -> None:
     grid = grid_for_aoi(_aoi(tmp_path / "aoi.shp", AOI_BOUNDS), 30.0)
     far = _write(tmp_path / "far.tif", np.ones((4, 4), np.float32), from_origin(900000.0, 4100000.0, 30.0, 30.0))

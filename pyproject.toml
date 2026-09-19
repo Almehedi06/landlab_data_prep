@@ -32,6 +32,7 @@ landlab-prep-soil = "landlab_data_prep.soil_data.cli_run:main"
 landlab-prep-soil-fetch = "landlab_data_prep.soil_data.cli_fetch:main"
 landlab-prep-soil-align = "landlab_data_prep.soil_data.cli_harmonize:main"
 landlab-prep-hls = "landlab_data_prep.remote_sensing.cli_run:main"
+landlab-prep-prism = "landlab_data_prep.prism.cli_run:main"
 landlab-prep-dem-difference = "landlab_data_prep.dem_difference:main"
 landlab-prep-export-tifs = "landlab_data_prep.export_ascii_to_tif:main"
 

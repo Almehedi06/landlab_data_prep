@@ -100,6 +100,10 @@ feature_sources:
     dbovendry_0_cm:
       url: https://storage.googleapis.com/solus100pub/dbovendry_0_cm_p.tif
       resampling: bilinear
+    kffact:                      # STATSGO soil erodibility K-factor, USGS ScienceBase
+      url: https://www.sciencebase.gov/catalog/file/get/6750c172d34ed8d3858534d8?name=statsgo-KFFACT.tif
+      resampling: nearest
+      missing_values: [-0.1]     # STATSGO marks large water bodies with -0.1
   landcover:
     nlcd_2021:
       url: https://www.mrlc.gov/downloads/sciweb1/shared/mrlc/data-bundles/Annual_NLCD_LndCov_2021_CU_C1V1.zip
@@ -121,3 +125,14 @@ feature_sources:
 #   cloud_max: 60          # drop whole scenes above this cloud cover percent
 #   compositing: median
 #   resampling: bilinear   # optional; default is raster.resampling_method
+
+# ----------------------------------------------------------------------------
+# PRISM daily forcing: precipitation and minimum and maximum temperature,
+# built by landlab-prep-prism; the Landlab pipeline ignores this block.
+# Uncomment to enable. Grids are cached in paths.cache_dir.
+#
+# prism:
+#   start: 2025-12-07
+#   end: 2025-12-20
+#   variables: [ppt, tmin, tmax]
+#   resolution: 800m        # or 4km

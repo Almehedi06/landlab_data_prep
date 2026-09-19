@@ -34,6 +34,7 @@ landlab-prep-pipeline --config config/base.yaml --export-final-tifs
 | `landlab-prep-soil-fetch` | `scripts/soil_fetch.py` | Fetch and crop soil layers only |
 | `landlab-prep-soil-align` | `scripts/soil_harmonize.py` | Align already fetched soil layers |
 | `landlab-prep-hls` | `scripts/remote_sensing_run.py` | HLS vegetation indices |
+| `landlab-prep-prism` | `scripts/prism_run.py` | PRISM daily precipitation and temperature |
 | `landlab-prep-dem-difference` | `scripts/dem_difference.py` | Post-event minus pre-event DEM |
 | `landlab-prep-export-tifs` | `scripts/export_tifs.py` | ASCII grids to GeoTIFF |
 
@@ -60,6 +61,13 @@ Every command takes `--config`. Run any command with `--help` for its options.
 - **Soil.** Where any soil input is missing, the derived soil layers are
   `-9999` and the Landlab node is closed. Water, landcover class 11, is also
   closed.
+- **K-factor.** `kffact`, the STATSGO soil erodibility factor from USGS, is
+  written with the other layers. STATSGO codes large water bodies as -0.1;
+  its `missing_values` setting turns them into `-9999`. It is mapped
+  coarsely, so a small AOI may show only a few distinct values.
+- **Missing-data codes.** A raster source can list `missing_values`, codes it
+  uses for missing data besides its declared nodata. They become `-9999`, and
+  need `nearest` or `mode` resampling.
 
 ## HLS vegetation indices (optional)
 
@@ -83,6 +91,23 @@ Outputs are written to `<output_dir>/remote_sensing`:
 
 Cloud, shadow, snow and high-aerosol pixels are masked. HLS data begin in 2013
 for Landsat and late 2015 for Sentinel-2.
+
+## PRISM daily forcing (optional)
+
+Daily precipitation in mm and minimum and maximum temperature in °C from PRISM,
+at 800 m or 4 km, aligned to the analysis grid.
+
+1. Uncomment the `prism` block in the config and set `start`, `end`,
+   `variables` and `resolution`.
+2. Run `landlab-prep-prism --config config/base.yaml`.
+
+Outputs go to `<output_dir>/prism_forcing`: one grid per day and variable in
+`aligned_tif/` and `asc/`, and `forcing_daily_prism.csv` with AOI means, in the
+layout `landlab_debrisflow` reads. Grids are cached by PRISM release, so
+revised data are downloaded again and unchanged data are reused.
+
+PRISM covers the conterminous US only. Cite the data as PRISM Group, Oregon
+State University, https://prism.oregonstate.edu.
 
 ## Standalone DEM download
 

@@ -1,8 +1,28 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-09-18
 
+### Added
+
+- `landlab-prep-prism`: daily PRISM precipitation and minimum and maximum
+  temperature, at 800 m or 4 km, on the analysis grid. Grids are cached by
+  PRISM release, so revised data are fetched again. The output layout matches
+  what `landlab_debrisflow` reads.
+- STATSGO K-factor, `kffact`, from USGS ScienceBase as a raster source in the
+  config template. Its -0.1 water code becomes `-9999`.
+- `missing_values` on a raster source, for codes that mean missing data besides
+  the file's declared nodata.
 - Released under the MIT license.
+
+### Fixed
+
+- `landlab_data_prep.pipeline.run_pipeline` failed with a `NameError`; it now
+  loads and validates the config like the `landlab-prep-pipeline` command.
+
+### Migrating from 0.3.0
+
+- Nothing is required. To use the new layers, copy the `kffact` raster entry
+  and the `prism` block from `config/base.example.yaml`.
 
 ## 0.3.0 - 2026-09-18
 

@@ -49,6 +49,17 @@ def test_every_problem_is_reported_at_once() -> None:
     assert str(err.value).startswith("Invalid config test.yaml")
 
 
+def test_missing_value_codes_are_checked() -> None:
+    cfg = _template()
+    cfg["feature_sources"]["rasters"]["kffact"]["resampling"] = "bilinear"
+    cfg["feature_sources"]["rasters"]["claytotal_0_cm"]["missing_values"] = "255"
+    with pytest.raises(ConfigError) as err:
+        validate_config(cfg, "pipeline")
+    text = "\n".join(err.value.problems)
+    assert "kffact.missing_values: needs resampling nearest or mode" in text
+    assert "claytotal_0_cm.missing_values: expected a non-empty list of numbers" in text
+
+
 def test_downloads_require_a_cache_dir_and_fire_ids() -> None:
     cfg = _template()  # DEM, soils, landcover and burn severity all download
     del cfg["paths"]["cache_dir"]

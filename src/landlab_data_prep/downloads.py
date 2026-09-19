@@ -26,15 +26,19 @@ def cached_download(
     timeout: float = 60,
     retries: int = 3,
     retry_delay: float = 2.0,
+    filename: str | None = None,
 ) -> Path:
     """Return the cached copy of ``url``, downloading it first if needed.
 
+    ``filename`` names the cached file; by default it is derived from the URL.
     Client errors such as 404 fail at once; server and network errors retry.
     """
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    name = Path(url.split("?", 1)[0]).name or "download"
-    target = cache_dir / f"{hashlib.sha1(url.encode()).hexdigest()[:12]}_{name}"
+    if filename is None:
+        name = Path(url.split("?", 1)[0]).name or "download"
+        filename = f"{hashlib.sha1(url.encode()).hexdigest()[:12]}_{name}"
+    target = cache_dir / filename
     if target.is_file() and target.stat().st_size > 0:
         return target
 

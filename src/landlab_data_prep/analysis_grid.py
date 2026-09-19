@@ -205,14 +205,24 @@ def align_to_grid(
     *,
     aoi_path: str | Path | None = None,
     tags: dict[str, str] | None = None,
+    missing_values: tuple[float, ...] = (),
 ) -> Path:
-    """Put band 1 of ``src_path`` on ``grid`` as float32 with NODATA, masked outside the AOI."""
+    """Put band 1 of ``src_path`` on ``grid`` as float32 with NODATA, masked outside the AOI.
+
+    ``missing_values`` are codes the source uses for missing data besides its
+    declared nodata, such as -0.1 for water in STATSGO. They need nearest or
+    mode resampling, because interpolation would blend them into real values.
+    """
+    if missing_values and resampling not in ("nearest", "mode"):
+        raise ValueError(f"missing_values need nearest or mode resampling, not {resampling!r}")
     dst_path = Path(dst_path)
     if Path(src_path).resolve() == dst_path.resolve():
         raise ValueError(f"Refusing to overwrite the source while aligning: {src_path}")
 
     data, _, _ = read_on_grid(src_path, grid, resampling, dtype="float32", nodata=NODATA)
     data[~np.isfinite(data)] = NODATA
+    for code in missing_values:
+        data[data == np.float32(code)] = NODATA
     if aoi_path is not None:
         data[~aoi_mask(aoi_path, grid)] = NODATA
     if not np.any(data != NODATA):

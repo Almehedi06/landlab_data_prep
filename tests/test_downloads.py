@@ -53,6 +53,12 @@ def test_download_is_cached_and_reused(tmp_path: Path, monkeypatch) -> None:
     assert not list(tmp_path.glob("*.part"))
 
 
+def test_download_can_be_given_a_file_name(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(downloads.requests, "get", lambda url, stream, timeout: FakeResponse(b"zipbytes", length=8))
+    path = cached_download("https://example.org/get/us/800m/ppt/20251207", tmp_path, filename="prism_ppt.zip")
+    assert path == tmp_path / "prism_ppt.zip" and path.read_bytes() == b"zipbytes"
+
+
 def test_truncated_download_leaves_nothing_behind(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(downloads.requests, "get", lambda url, stream, timeout: FakeResponse(b"short", length=100))
     monkeypatch.setattr(downloads.time, "sleep", lambda seconds: None)

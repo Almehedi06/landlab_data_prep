@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 from landlab_data_prep.analysis_grid import RESAMPLING
+from landlab_data_prep.prism.config import PrismConfigError, parse_prism_config
 from landlab_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
 from landlab_data_prep.soil_data.core import DEFAULT_SOIL_SPECS
 
@@ -23,13 +24,16 @@ SOIL_KEYS = tuple(DEFAULT_SOIL_SPECS)
 SOURCE_KINDS = ("local", "remote", "remote_then_local", "auto")
 DOWNLOADING_KINDS = ("remote", "remote_then_local", "auto")
 DEM_SOURCES = ("local", "bmi-topography")
-SECTIONS = ("aoi", "paths", "fire", "raster", "dem", "burn_severity", "dnbr", "feature_sources", "remote_sensing")
+SECTIONS = (
+    "aoi", "paths", "fire", "raster", "dem", "burn_severity", "dnbr", "feature_sources", "remote_sensing", "prism",
+)
 REQUIRED_SECTIONS = {
     "pipeline": ("aoi", "paths", "raster", "dem", "burn_severity", "dnbr", "feature_sources"),
     "soil": ("aoi", "paths", "raster", "feature_sources"),
     "remote_sensing": ("aoi", "paths", "raster", "remote_sensing"),
     "dem_difference": ("aoi", "raster"),
     "export": ("aoi", "raster"),
+    "prism": ("aoi", "paths", "raster", "prism"),
 }
 RETIRED_KEYS = {
     "inputs": "remove it; it was never read",
@@ -70,7 +74,7 @@ def validate_config(cfg: Any, command: str, source: str = "config") -> None:
     _check_keys(cfg, "", required, [s for s in SECTIONS if s not in required], p)
     present = {
         name for name in SECTIONS
-        if name in cfg and name != "remote_sensing" and _is_mapping(cfg[name], name, p)
+        if name in cfg and name not in ("remote_sensing", "prism") and _is_mapping(cfg[name], name, p)
     }
 
     if "aoi" in present:
@@ -105,8 +109,15 @@ def validate_config(cfg: Any, command: str, source: str = "config") -> None:
             parse_remote_sensing_config(cfg["remote_sensing"])
         except RemoteSensingConfigError as exc:
             p.extend(exc.problems)
+    if "prism" in cfg:
+        try:
+            parse_prism_config(cfg["prism"])
+        except PrismConfigError as exc:
+            p.extend(exc.problems)
     if command in ("pipeline", "soil"):
         _check_downloads(cfg, command, p)
+    if command == "prism" and not (isinstance(cfg.get("paths"), dict) and cfg["paths"].get("cache_dir")):
+        p.append("paths.cache_dir: required because PRISM grids download")
 
     if p:
         raise ConfigError(source, p)
@@ -178,9 +189,10 @@ def _check_feature_sources(fs: dict, command: str, p: list[str]) -> None:
         for key, info in rasters.items():
             where = f"feature_sources.rasters.{key}"
             if _is_mapping(info, where, p):
-                _check_keys(info, where, ("url", "resampling"), (), p)
+                _check_keys(info, where, ("url", "resampling"), ("missing_values",), p)
                 _text(info, where, "url", p)
                 _choice(info, where, "resampling", RESAMPLING, p)
+                _check_missing_values(info, where, p)
         if command in ("pipeline", "soil"):
             missing = [k for k in SOIL_KEYS if k not in rasters]
             if missing:
@@ -196,6 +208,21 @@ def _check_feature_sources(fs: dict, command: str, p: list[str]) -> None:
                 _text(info, where, "url", p)
                 _choice(info, where, "resampling", RESAMPLING, p)
                 _flag(info, where, "unzip", p)
+
+
+def _check_missing_values(info: dict, where: str, p: list[str]) -> None:
+    if "missing_values" not in info:
+        return
+    codes = info["missing_values"]
+    if not isinstance(codes, list) or not codes or not all(
+        isinstance(v, (int, float)) and not isinstance(v, bool) for v in codes
+    ):
+        p.append(f"{where}.missing_values: expected a non-empty list of numbers, got {codes!r}")
+    elif info.get("resampling") not in ("nearest", "mode"):
+        p.append(
+            f"{where}.missing_values: needs resampling nearest or mode, because interpolation "
+            "would blend the codes into real values"
+        )
 
 
 def _check_downloads(cfg: dict, command: str, p: list[str]) -> None:

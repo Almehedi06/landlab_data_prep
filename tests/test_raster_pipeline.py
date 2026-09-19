@@ -16,9 +16,11 @@ if str(SRC) not in sys.path:
 from landlab_data_prep.pipeline import (
     build_sources_from_config,
     run_landlab_pipeline,
+    run_pipeline,
     run_raster_pipeline,
 )
 from landlab_data_prep.analysis_grid import check_on_grid, grid_from_config
+from landlab_data_prep.config import ConfigError
 from landlab_data_prep.export_ascii_to_tif import export_ascii_dir_to_tifs
 from landlab_data_prep.reproject_and_resample import clip_raster_to_shape, convert_to_ascii, read_ascii_header
 
@@ -148,6 +150,10 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     }
     for key in soil_keys:
         _write_tif(data_dir / f"{key}.tif", np.full(shape, soil_values[key], dtype="float32"), transform, crs)
+    kffact_path = data_dir / "kffact.tif"
+    kffact = np.full(shape, 0.28, dtype="float32")
+    kffact[:, :2] = -0.1  # STATSGO's water code
+    _write_tif(kffact_path, kffact, transform, crs)
 
     with rasterio.open(dem_path) as src:
         bounds = src.bounds
@@ -187,7 +193,8 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
                     "resampling": "bilinear",
                 }
                 for key in soil_keys
-            },
+            }
+            | {"kffact": {"url": str(kffact_path), "resampling": "nearest", "missing_values": [-0.1]}},
             "landcover": {
                 "nlcd_local": {
                     "url": str(landcover_path),
@@ -202,6 +209,10 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     grid = grid_from_config(cfg)
     for path in outputs.values():
         check_on_grid(path, grid)
+    # An extra raster source such as the K-factor is aligned and kept under its own name.
+    assert Path(outputs["kffact"]).name == "kffact.asc"
+    kffact_out = np.loadtxt(outputs["kffact"], skiprows=6)
+    assert set(np.unique(kffact_out).round(4)) == {-9999.0, 0.28}  # water code masked, real values kept
     grid = run_landlab_pipeline(cfg, outputs)
 
     assert "soil__thickness" in grid.at_node
@@ -259,3 +270,12 @@ def test_disabled_dnbr_needs_no_source_configuration() -> None:
     source_keys = {spec.key for spec in build_sources_from_config(cfg)}
 
     assert "dnbr" not in source_keys
+
+
+def test_run_pipeline_validates_the_config_file(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="Config not found"):
+        run_pipeline(str(tmp_path / "missing.yaml"))
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("aoi: {}\n")
+    with pytest.raises(ConfigError):
+        run_pipeline(str(bad))
