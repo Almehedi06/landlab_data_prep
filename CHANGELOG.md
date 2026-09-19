@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Released under the MIT license.
+
 ## 0.3.0 - 2026-09-18
 
 The project is renamed from `landslide-data-prep` to `landlab_data_prep`.

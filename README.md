@@ -241,6 +241,10 @@ python scripts/download_dem.py \
 python -m pytest -q tests
 ```
 
+## License
+
+MIT. See `LICENSE`.
+
 ## Changes
 
 See `CHANGELOG.md`.
