@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.0.0 - 2026-09-29
+
+First stable release. The config format and the commands are settled.
+
+### Added
+
+- `landlab-prep-init-config` writes a starting config, so an installed copy
+  needs no clone. The file is written readable by its owner only, because it
+  can hold an API key.
+- Install with `pip` alone, in a plain virtual environment. Every dependency
+  has a wheel on Python 3.10 to 3.13.
+- CI also installs with pip on Python 3.10 to 3.13 and runs `ruff`.
+- `CITATION.cff`, so the tool can be cited.
+
+### Changed
+
+- The config template moved into the package, at
+  `src/landlab_data_prep/base.example.yaml`. `config/base.example.yaml` is
+  gone; write a fresh copy with `landlab-prep-init-config`.
+- `requirements.txt` is gone. `pyproject.toml` is the dependency list, and a
+  test keeps `environment.yml` in step with it.
+
+### Migrating from 0.4.0
+
+- Nothing is required. Existing configs keep working.
+
 ## 0.4.0 - 2026-09-18
 
 ### Added

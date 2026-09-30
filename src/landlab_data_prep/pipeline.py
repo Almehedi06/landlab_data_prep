@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import os
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
@@ -17,7 +17,14 @@ from landlab_data_prep.preflight import (
     validate_aoi_overlaps_raster,
     validate_raster_path,
 )
-from landlab_data_prep.analysis_grid import ALIGNED_SUBDIR, DEM_RESAMPLING, NODATA, Grid, align_to_grid, grid_from_config
+from landlab_data_prep.analysis_grid import (
+    ALIGNED_SUBDIR,
+    DEM_RESAMPLING,
+    NODATA,
+    Grid,
+    align_to_grid,
+    grid_from_config,
+)
 from landlab_data_prep.reproject_and_resample import convert_to_ascii
 from landlab_data_prep.soil_features import (
     compute_fc_wp_arrays,

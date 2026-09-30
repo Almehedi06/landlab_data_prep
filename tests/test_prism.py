@@ -24,6 +24,7 @@ if str(SRC) not in sys.path:
 
 from landlab_data_prep.analysis_grid import check_on_grid, grid_for_aoi
 from landlab_data_prep.config import ConfigError, validate_config
+from landlab_data_prep.init_config import template_text
 from landlab_data_prep.prism import core
 from landlab_data_prep.prism.config import PrismConfigError, parse_prism_config
 from landlab_data_prep.prism.core import PrismError, build_prism_forcing, parse_release
@@ -44,11 +45,17 @@ def test_parse_valid_block() -> None:
 
 
 def test_config_reports_every_problem_at_once() -> None:
-    bad = {"start": "2025-12-20", "end": "2025-12-07", "variables": ["ppt", "tmean"], "resolution": "250m", "region": "us"}
+    bad = {
+        "start": "2025-12-20", "end": "2025-12-07",
+        "variables": ["ppt", "tmean"], "resolution": "250m", "region": "us",
+    }
     with pytest.raises(PrismConfigError) as err:
         parse_prism_config(bad, today=date(2026, 9, 18))
     text = "\n".join(err.value.problems)
-    for fragment in ["unknown keys ['region']", "start 2025-12-20 is after end 2025-12-07", "unsupported ['tmean']", "resolution='250m'"]:
+    for fragment in [
+        "unknown keys ['region']", "start 2025-12-20 is after end 2025-12-07",
+        "unsupported ['tmean']", "resolution='250m'",
+    ]:
         assert fragment in text, fragment
 
 
@@ -60,7 +67,7 @@ def test_config_rejects_future_end_and_huge_ranges() -> None:
 
 
 def test_example_prism_block_in_template_is_valid() -> None:
-    text = (ROOT / "config" / "base.example.yaml").read_text()
+    text = template_text()
     lines = []
     for line in text[text.index("# prism:"):].splitlines():
         if not line.startswith("#"):
@@ -70,7 +77,10 @@ def test_example_prism_block_in_template_is_valid() -> None:
 
 
 def test_prism_command_needs_the_block_and_a_cache() -> None:
-    cfg = {"aoi": {"aoi": "/a.shp"}, "paths": {"output_dir": "/out"}, "raster": {"target_res": 10, "resampling_method": "bilinear"}}
+    cfg = {
+        "aoi": {"aoi": "/a.shp"}, "paths": {"output_dir": "/out"},
+        "raster": {"target_res": 10, "resampling_method": "bilinear"},
+    }
     with pytest.raises(ConfigError) as err:
         validate_config(cfg, "prism")
     text = "\n".join(err.value.problems)
@@ -103,12 +113,16 @@ def _prism_zip(variable: str, day: str, fill: float | None = None) -> bytes:
     memfile = io.BytesIO()
     with rasterio.MemoryFile() as mem:
         with mem.open(driver="GTiff", width=width, height=height, count=1, dtype="float32",
-                      crs="EPSG:4269", transform=from_origin(west - 3 * res, north + 3 * res, res, res), nodata=-9999.0) as dst:
+                      crs="EPSG:4269", nodata=-9999.0,
+                      transform=from_origin(west - 3 * res, north + 3 * res, res, res)) as dst:
             dst.write(np.full((height, width), VALUES[variable] if fill is None else fill, np.float32), 1)
         tif_bytes = mem.read()
     with zipfile.ZipFile(memfile, "w") as zf:
         zf.writestr(f"prism_{variable}_us_30s_{day}.tif", tif_bytes)
-        zf.writestr(f"prism_{variable}_us_30s_{day}.info.txt", "PRISM_DATASET_TYPE: an91/r2112\nPRISM_DATASET_RELEASE_NUMBER: 8\n")
+        zf.writestr(
+            f"prism_{variable}_us_30s_{day}.info.txt",
+            "PRISM_DATASET_TYPE: an91/r2112\nPRISM_DATASET_RELEASE_NUMBER: 8\n",
+        )
     return memfile.getvalue()
 
 
@@ -148,7 +162,9 @@ class FakePrism:
         if "/releaseDate/" in url:
             if self.release_down:
                 raise requests.ConnectionError("release service unreachable")
-            return FakeResponse(payload=[f"{day[:4]}-{day[4:6]}-{day[6:]}", "2026-06-25", variable, self.release_number, url])
+            return FakeResponse(
+                payload=[f"{day[:4]}-{day[4:6]}-{day[6:]}", "2026-06-25", variable, self.release_number, url]
+            )
         self.data_calls.append(url)
         return FakeResponse(body=self.body if self.body is not None else _prism_zip(variable, day, self.fill))
 

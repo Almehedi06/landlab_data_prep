@@ -167,7 +167,7 @@ def _run_one(cfg: RunConfig) -> dict[str, Any]:
 
     start = time.perf_counter()
 
-    with open(cfg.dem_path, "r") as f:
+    with open(cfg.dem_path) as f:
         mg = esri_ascii.load(f, name="topographic__elevation")
 
     mg.set_closed_boundaries_at_grid_edges(

@@ -95,8 +95,12 @@ def fetch_grid(resolution: str, variable: str, day: date, cache_dir: str | Path)
     except (requests.RequestException, ValueError, PrismError) as exc:
         cached = [p for p in sorted(folder.glob(f"{stem}_r*.zip")) if zipfile.is_zipfile(p)]
         if not cached:
-            raise PrismError(f"Could not check the PRISM release for {variable} {day}, and nothing is cached: {exc}") from None
-        LOG.warning("Could not check the PRISM release for %s %s (%s); using cached %s", variable, day, exc, cached[-1].name)
+            raise PrismError(
+                f"Could not check the PRISM release for {variable} {day}, and nothing is cached: {exc}"
+            ) from None
+        LOG.warning(
+            "Could not check the PRISM release for %s %s (%s); using cached %s", variable, day, exc, cached[-1].name
+        )
         return cached[-1], None, False
 
     name = f"{stem}_{release.tag}.zip"
@@ -118,7 +122,12 @@ def fetch_grid(resolution: str, variable: str, day: date, cache_dir: str | Path)
 
 
 def _dataset_info(extract_dir: Path) -> dict[str, str]:
-    wanted = ("PRISM_DATASET_TYPE", "PRISM_DATASET_VERSION", "PRISM_DATASET_RELEASE_NUMBER", "PRISM_DATASET_CREATE_DATE")
+    wanted = (
+        "PRISM_DATASET_TYPE",
+        "PRISM_DATASET_VERSION",
+        "PRISM_DATASET_RELEASE_NUMBER",
+        "PRISM_DATASET_CREATE_DATE",
+    )
     info: dict[str, str] = {}
     for path in extract_dir.glob("*.info.txt"):
         for line in path.read_text(errors="replace").splitlines():

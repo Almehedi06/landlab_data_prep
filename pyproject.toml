@@ -27,6 +27,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
+landlab-prep-init-config = "landlab_data_prep.init_config:main"
 landlab-prep-pipeline = "landlab_data_prep.run_pipeline:main"
 landlab-prep-soil = "landlab_data_prep.soil_data.cli_run:main"
 landlab-prep-soil-fetch = "landlab_data_prep.soil_data.cli_fetch:main"
@@ -39,9 +40,24 @@ landlab-prep-export-tifs = "landlab_data_prep.export_ascii_to_tif:main"
 [tool.setuptools.dynamic]
 version = {attr = "landlab_data_prep.__version__"}
 
+[tool.setuptools.package-data]
+landlab_data_prep = ["base.example.yaml"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["landlab_data_prep*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests and the script wrappers add src/ to sys.path before importing the package.
+"tests/*" = ["E402"]
+"scripts/*" = ["E402"]

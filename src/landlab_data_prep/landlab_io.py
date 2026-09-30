@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 from landlab.io import esri_ascii
@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover - fallback for older landlab
 
 def read_nodata_value(ascii_path: str, default: float = -9999.0) -> float:
     nodata_val = None
-    with open(ascii_path, "r") as f:
+    with open(ascii_path) as f:
         for line in f:
             if line.strip().upper().startswith("NODATA_VALUE"):
                 nodata_val = float(line.split()[1])
@@ -23,7 +23,7 @@ def read_nodata_value(ascii_path: str, default: float = -9999.0) -> float:
 
 
 def load_grid(ascii_path: str, field_name: str):
-    with open(ascii_path, "r") as f:
+    with open(ascii_path) as f:
         return esri_ascii.load(f, name=field_name)
 
 
@@ -40,7 +40,7 @@ def add_ascii_field(
 ):
     nodata_val = read_nodata_value(ascii_path)
 
-    with open(ascii_path, "r") as f:
+    with open(ascii_path) as f:
         tmp = esri_ascii.load(f, name=field_name)
 
     raw_vals = tmp.at_node[field_name].copy()

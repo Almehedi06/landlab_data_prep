@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import rasterio
@@ -243,7 +243,7 @@ _ASCII_HEADER_KEYS = {"ncols", "nrows", "xllcorner", "yllcorner", "xllcenter", "
 def read_ascii_header(path: str | Path) -> dict[str, float]:
     """Header of an ESRI ASCII grid; handles 5-line headers without NODATA_value."""
     header: dict[str, float] = {}
-    with open(path, "r") as f:
+    with open(path) as f:
         for _ in range(len(_ASCII_HEADER_KEYS)):
             parts = f.readline().split()
             if len(parts) < 2 or parts[0].lower() not in _ASCII_HEADER_KEYS:

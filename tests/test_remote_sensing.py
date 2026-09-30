@@ -19,6 +19,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from landlab_data_prep.init_config import template_text
 from landlab_data_prep.analysis_grid import check_on_grid, grid_for_aoi, snap_grid
 from landlab_data_prep.remote_sensing import catalog, composite
 from landlab_data_prep.remote_sensing.catalog import (
@@ -152,7 +153,10 @@ def test_config_reports_every_problem_at_once() -> None:
 
 
 def test_config_requires_pre_to_end_before_post() -> None:
-    windows = {"pre": {"start": "2017-06-01", "end": "2018-07-01"}, "post": {"start": "2018-06-01", "end": "2018-09-30"}}
+    windows = {
+        "pre": {"start": "2017-06-01", "end": "2018-07-01"},
+        "post": {"start": "2018-06-01", "end": "2018-09-30"},
+    }
     with pytest.raises(RemoteSensingConfigError, match="pre must end before post starts"):
         parse_remote_sensing_config(_block(windows=windows))
 
@@ -172,7 +176,7 @@ def test_config_rejects_datetime_bool_and_missing_keys() -> None:
 
 def test_example_config_block_is_valid() -> None:
     """The commented example in the tracked template must stay parseable."""
-    text = (ROOT / "config" / "base.example.yaml").read_text()
+    text = template_text()
     start = text.index("# remote_sensing:")
     lines = []
     for line in text[start:].splitlines():
@@ -584,7 +588,12 @@ def test_every_command_lands_on_the_same_grid(tmp_path: Path, monkeypatch) -> No
     soil_manifest = harmonize_soil_layers(
         aoi_path=Path(cfg["aoi"]["aoi"]),
         output_dir=out / "soil",
-        specs=[SoilVarSpec("cec7_0_cm", "cation__exchange_capacity", cfg["feature_sources"]["rasters"]["cec7_0_cm"]["url"], "bilinear")],
+        specs=[
+            SoilVarSpec(
+                "cec7_0_cm", "cation__exchange_capacity",
+                cfg["feature_sources"]["rasters"]["cec7_0_cm"]["url"], "bilinear",
+            )
+        ],
         grid=grid,
     )
     assert cli_run.main(["--config", str(config_path), "--max-workers", "2"]) == 0

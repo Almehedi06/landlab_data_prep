@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
-from typing import Mapping
+from collections.abc import Mapping
 
 import geopandas as gpd
 import rasterio

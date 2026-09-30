@@ -108,7 +108,7 @@ def main() -> None:
         manifest_path = output_dir / "soil_collection_manifest.json"
         if not manifest_path.exists():
             raise RuntimeError(f"Missing manifest: {manifest_path}")
-        with open(manifest_path, "r") as f:
+        with open(manifest_path) as f:
             manifest = json.load(f)
 
         layers = manifest.get("layers", [])

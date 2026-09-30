@@ -12,7 +12,7 @@ import netrc
 import os
 from pathlib import Path
 import threading
-from typing import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 CMR_STAC_URL = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD"
 HLS_VI_COLLECTIONS = ("HLSL30_VI_2.0", "HLSS30_VI_2.0")

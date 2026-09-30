@@ -120,7 +120,7 @@ def test_harmonize_puts_layers_on_the_analysis_grid(tmp_path: Path) -> None:
         assert np.allclose(out.read(1), 1.0)
     assert not (out_dir / "_aligned").exists()
 
-    with open(manifest_path, "r") as f:
+    with open(manifest_path) as f:
         manifest = json.load(f)
     assert manifest["manifest_version"] == "1.0"
     assert manifest["stage"] == "harmonize"

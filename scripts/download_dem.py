@@ -144,7 +144,9 @@ def main(argv=None) -> None:
     parser.add_argument("--crs", help="Target CRS, e.g. EPSG:32610 (without --reference)")
     parser.add_argument("--resolution", type=float, help="Square pixel size in target CRS units (without --reference)")
     parser.add_argument("--output", required=True, type=Path, help="Output GeoTIFF")
-    parser.add_argument("--config", type=Path, help="Read dem.api_key only; defaults to this script's ../config/base.yaml")
+    parser.add_argument(
+        "--config", type=Path, help="Read dem.api_key only; defaults to ../config/base.yaml next to this script"
+    )
     parser.add_argument("--dem-type", default="USGS10m", help="bmi-topography DEM product (default: USGS10m)")
     parser.add_argument("--cache-dir", type=Path, help="Download cache; default: <output parent>/dem_cache")
     parser.add_argument("--buffer-deg", type=float, default=0.01, help="Download margin in degrees (default: 0.01)")

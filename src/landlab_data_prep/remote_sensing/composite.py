@@ -12,7 +12,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import warnings
 
 import numpy as np
@@ -145,7 +145,7 @@ def composite_window(
         return read_scene(scene, indices, grid, options_factory())
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for d, (valid, values) in zip(day_of, pool.map(work, ordered)):
+        for d, (valid, values) in zip(day_of, pool.map(work, ordered), strict=True):
             obs[d] += valid
             for name in indices:
                 sums[name][d] += np.where(valid, values[name], np.float32(0.0))

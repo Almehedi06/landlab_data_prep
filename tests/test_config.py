@@ -12,12 +12,13 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from landlab_data_prep.config import ConfigError, load_config, validate_config
+from landlab_data_prep.init_config import template_text
 
-TEMPLATE = ROOT / "config" / "base.example.yaml"
+TEMPLATE_TEXT = template_text()
 
 
 def _template() -> dict:
-    return yaml.safe_load(TEMPLATE.read_text())
+    return yaml.safe_load(TEMPLATE_TEXT)
 
 
 @pytest.mark.parametrize("command", ["pipeline", "soil", "dem_difference", "export"])
@@ -105,5 +106,5 @@ def test_load_config_reads_and_validates(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_config(tmp_path / "missing.yaml", "pipeline")
     path = tmp_path / "cfg.yaml"
-    path.write_text(TEMPLATE.read_text())
+    path.write_text(TEMPLATE_TEXT)
     assert load_config(path, "soil")["raster"]["target_res"] == 10

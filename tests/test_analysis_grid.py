@@ -134,7 +134,9 @@ def test_align_to_grid_rejects_no_overlap_and_self_overwrite(tmp_path: Path) -> 
 def test_check_on_grid_catches_shifted_geotiff_and_ascii(tmp_path: Path) -> None:
     grid = grid_for_aoi(_aoi(tmp_path / "aoi.shp", AOI_BOUNDS), 30.0)
 
-    shifted = _write(tmp_path / "shifted.tif", np.ones(grid.shape, np.float32), from_origin(500025.0, 4100010.0, 30.0, 30.0))
+    shifted = _write(
+        tmp_path / "shifted.tif", np.ones(grid.shape, np.float32), from_origin(500025.0, 4100010.0, 30.0, 30.0)
+    )
     with pytest.raises(GridMismatchError, match="transform"):
         check_on_grid(shifted, grid)
     with pytest.raises(GridMismatchError):
