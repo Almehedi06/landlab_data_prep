@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           landlab-prep-init-config --output "$RUNNER_TEMP/base.yaml"
-          landlab-prep-prism --help > /dev/null
+          for command in prism synoptic nisar smap; do landlab-prep-$command --help > /dev/null; done
 
   lint:
     name: ruff

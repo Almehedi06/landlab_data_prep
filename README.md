@@ -2,8 +2,8 @@
 
 Builds analysis-ready inputs for Landlab landslide and postfire debris-flow
 models. One YAML config in, one common grid out: DEM, burn severity, soil,
-landcover and K-factor, plus optional HLS vegetation indices, PRISM daily weather
-and Synoptic station rainfall.
+landcover and K-factor, plus optional HLS vegetation indices, PRISM and Synoptic
+rainfall, NISAR radar and soil moisture, and SMAP soil moisture.
 
 ## Install
 
@@ -42,6 +42,8 @@ The config is never tracked by git, and holds one event at a time.
 | `landlab-prep-hls` | `scripts/remote_sensing_run.py` | HLS vegetation indices |
 | `landlab-prep-prism` | `scripts/prism_run.py` | PRISM daily rain and temperature |
 | `landlab-prep-synoptic` | `scripts/synoptic_run.py` | Synoptic station rainfall |
+| `landlab-prep-nisar` | `scripts/nisar_run.py` | NISAR backscatter and soil moisture |
+| `landlab-prep-smap` | `scripts/smap_run.py` | SMAP L4 soil moisture, every 3 hours |
 | `landlab-prep-dem-difference` | `scripts/dem_difference.py` | Post minus pre DEM |
 | `landlab-prep-export-tifs` | `scripts/export_tifs.py` | ASCII grids to GeoTIFF |
 
@@ -138,6 +140,61 @@ Written to `<output_dir>/synoptic_forcing`: a grid per interval in
 `forcing_synoptic.csv` (AOI mean, coverage and station count per interval),
 `rainfall.csv` (every returned station interval and whether it was used),
 `stations.csv`, `stations.gpkg` and `synoptic_manifest.json`.
+
+## NISAR backscatter and soil moisture (optional)
+
+Two NISAR L-band products, for the AOI and a date window:
+
+| Product | Layers | Pixels | Written to |
+|---|---|---|---|
+| `GCOV` radar backscatter | `HHHH`, `HVHV` (and other terms the mode acquired), linear gamma0 | 10-20 m, UTM | `nisar_gcov/` |
+| `SME2` soil moisture (m³/m³) | `combined`, `DSG`, `PMI`, `TSR`, `recommended` | 200 m, EASE-Grid 2.0 | `nisar_sme2/` |
+
+`combined` is NISAR's own estimate, the average of its three algorithms: `DSG`
+(disaggregation), `PMI` (physical model inversion) and `TSR` (time-series ratio).
+`recommended` is 1 where NISAR recommends the retrieval and 0 where it does not.
+
+1. Fill in the `nisar` block: `start`, `end`, and the `layers` of each product you want.
+2. Set `EARTHDATA_TOKEN`, or add `urs.earthdata.nasa.gov` to `~/.netrc`, as for HLS.
+3. Run `landlab-prep-nisar --config config/base.yaml`.
+
+Scenes are found in NASA CMR, from October 2025 on. Calibrated (Provisional)
+products are used where they exist, pre-calibration (Beta) products otherwise;
+the `release` column of each index says which. Each NISAR file is large, so only
+the window around the AOI is read, by HTTP range requests, and cached at NISAR's
+own pixels and values under `<cache_dir>/nisar/`. Pixels NISAR marks invalid
+become NoData before resampling. Backscatter is averaged onto the grid by area;
+soil moisture is copied onto it by nearest cell, never smoothed.
+
+Each product folder holds a grid per scene and layer in `aligned_tif/<layer>/`
+and `asc/<layer>/`, `nisar_<product>_index.csv` (date, release, track, ascending
+or descending pass, and AOI coverage and mean of every layer) and
+`nisar_manifest.json`. Compare scenes of the same track: ascending and
+descending passes see slopes from opposite sides. A scene without a layer, or
+without data over the AOI, stays in the index with a note.
+
+## SMAP L4 soil moisture (optional)
+
+Surface (`sm_surface`, 0-5 cm), root-zone (`sm_rootzone`, 0-100 cm) and profile
+(`sm_profile`) soil moisture in m³/m³, every 3 hours on a 9 km grid, from
+2015-03-31 on. SMAP L4 (`SPL4SMGP` v008) is a land model that assimilates SMAP
+observations, so it has values under snow and frozen ground, where radar
+retrievals such as NISAR's do not.
+
+1. Fill in the `smap` block: `start`, `end`, `layers`.
+2. Set `EARTHDATA_TOKEN`, or add `urs.earthdata.nasa.gov` to `~/.netrc`, as for HLS.
+3. Run `landlab-prep-smap --config config/base.yaml`.
+
+Each file is about 140 MB, but a layer is read as one compressed block of about
+4 MB, so a file costs about 11 MB. The window around the AOI is cached at SMAP's
+own 9 km cells under `<cache_dir>/smap/`, and copied onto the grid by nearest
+cell: a 9 km cell is larger than most AOIs, so expect one or a few values per step.
+
+Written to `<output_dir>/smap_l4`: a GeoTIFF per 3-hour step and layer in
+`aligned_tif/<layer>/`, `smap_l4_index.csv` (AOI mean and coverage per step;
+`datetime` is the centre of the 3-hour average, UTC), `smap_l4_daily.csv` (mean
+of the steps in each UTC day) and `smap_manifest.json`. ASCII grids are not
+written: they would repeat a handful of values over every cell for every step.
 
 ## Standalone DEM download
 

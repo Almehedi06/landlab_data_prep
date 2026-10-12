@@ -150,3 +150,28 @@ def test_check_on_grid_catches_shifted_geotiff_and_ascii(tmp_path: Path) -> None
     moved.write_text(asc.read_text().replace("xllcorner     500010.0", "xllcorner     500040.0"))
     with pytest.raises(GridMismatchError, match="xllcorner"):
         check_on_grid(moved, grid)
+
+
+# ---------------------------------------------------------------- source windows
+
+
+def test_source_window_covers_the_bounds_plus_padding() -> None:
+    from landlab_data_prep.analysis_grid import source_window
+
+    x = 1005.0 + 10 * np.arange(100)  # cell centres; edges at 1000, 1010, ...
+    y = 5995.0 - 10 * np.arange(100)  # top edge at 6000
+    rows, cols, transform = source_window(x, y, "EPSG:32610", (1200.0, 5500.0, 1300.0, 5600.0), "EPSG:32610", 2)
+    assert (cols.start, cols.stop) == (20 - 2, 30 + 2) and (rows.start, rows.stop) == (40 - 2, 50 + 2)
+    assert (transform.c, transform.f, transform.a, transform.e) == (1000.0 + 10 * 18, 6000.0 - 10 * 38, 10.0, -10.0)
+    assert source_window(x, y, "EPSG:32610", (9000.0, 9000.0, 9100.0, 9100.0), "EPSG:32610", 2) is None
+    with pytest.raises(ValueError, match="not regular and north-up"):
+        source_window(x, y[::-1], "EPSG:32610", (1200.0, 5500.0, 1300.0, 5600.0), "EPSG:32610", 2)
+
+
+def test_grid_cache_key_is_stable_and_grid_specific() -> None:
+    from landlab_data_prep.analysis_grid import snap_grid
+
+    a = snap_grid((500000.0, 4100000.0, 501000.0, 4101000.0), "EPSG:32610", 10.0)
+    b = snap_grid((500000.0, 4100000.0, 501000.0, 4101000.0), "EPSG:32610", 30.0)
+    assert a.cache_key == snap_grid((500000.0, 4100000.0, 501000.0, 4101000.0), "EPSG:32610", 10.0).cache_key
+    assert a.cache_key != b.cache_key and len(a.cache_key) == 12

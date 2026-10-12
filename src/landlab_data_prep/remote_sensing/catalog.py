@@ -14,13 +14,13 @@ from pathlib import Path
 import threading
 from collections.abc import Callable, Iterable, Mapping
 
+from landlab_data_prep.earthdata import EARTHDATA_HOST, TOKEN_ENV_VAR, EarthdataAuthError
+
 CMR_STAC_URL = "https://cmr.earthdata.nasa.gov/stac/LPCLOUD"
 HLS_VI_COLLECTIONS = ("HLSL30_VI_2.0", "HLSS30_VI_2.0")
 NATIVE_RESOLUTION_M = 30.0
 FMASK_ASSET = "Fmask"
 CLOUD_COVER_PROPERTY = "eo:cloud_cover"
-EARTHDATA_HOST = "urs.earthdata.nasa.gov"
-TOKEN_ENV_VAR = "EARTHDATA_TOKEN"
 
 _BASE_GDAL_OPTIONS = {
     "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
@@ -28,10 +28,6 @@ _BASE_GDAL_OPTIONS = {
     "GDAL_HTTP_MAX_RETRY": "5",
     "GDAL_HTTP_RETRY_DELAY": "2",
 }
-
-
-class EarthdataAuthError(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True)

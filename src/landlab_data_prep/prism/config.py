@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
+
+from landlab_data_prep.dates import parse_date
 
 VARIABLES = ("ppt", "tmin", "tmax")
 RESOLUTIONS = ("800m", "4km")
@@ -44,8 +46,8 @@ def parse_prism_config(block: object, today: date | None = None) -> PrismConfig:
     if missing:
         problems.append(f"prism: missing required keys {missing}")
 
-    start = _parse_date(block["start"], "prism.start", problems) if "start" in block else None
-    end = _parse_date(block["end"], "prism.end", problems) if "end" in block else None
+    start = parse_date(block["start"], "prism.start", problems) if "start" in block else None
+    end = parse_date(block["end"], "prism.end", problems) if "end" in block else None
     if start and end:
         if start > end:
             problems.append(f"prism: start {start} is after end {end}")
@@ -73,19 +75,3 @@ def parse_prism_config(block: object, today: date | None = None) -> PrismConfig:
     if problems:
         raise PrismConfigError(problems)
     return PrismConfig(start=start, end=end, variables=tuple(variables), resolution=resolution)
-
-
-def _parse_date(value: object, where: str, problems: list[str]) -> date | None:
-    # YAML turns an unquoted 2025-12-07 into a date; a quoted one stays a string.
-    if isinstance(value, datetime):
-        problems.append(f"{where}: expected a date like 2025-12-07, got a datetime {value}")
-        return None
-    if isinstance(value, date):
-        return value
-    if isinstance(value, str):
-        try:
-            return date.fromisoformat(value.strip())
-        except ValueError:
-            pass
-    problems.append(f"{where}: expected a date like 2025-12-07, got {value!r}")
-    return None

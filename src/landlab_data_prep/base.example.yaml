@@ -147,3 +147,30 @@ feature_sources:
 #   interval_hours: 1       # 1, 2, 3, 4, 6, 8, 12, or 24
 #   buffer_km: 4            # station search around the AOI
 #   max_distance_km: 25     # maximum cell-to-station distance; otherwise NoData
+
+# ----------------------------------------------------------------------------
+# NISAR radar layers, built by landlab-prep-nisar; the Landlab pipeline ignores
+# this block. Needs NASA Earthdata credentials, as HLS. Only the AOI window of
+# each scene is read. Scenes start in October 2025; dates are inclusive UTC days.
+# Products, each written to nisar_<product>/ with its own index CSV:
+#   GCOV  radar backscatter, linear gamma0, 10-20 m: HHHH, HVHV, VVVV, VHVH, RHRH, RVRV
+#   SME2  soil moisture, m3/m3, 200 m: combined (NISAR's average), DSG, PMI and TSR
+#         (its three algorithms), recommended (1 where NISAR recommends the retrieval)
+# Leave a product out to skip it.
+# nisar:
+#   start: 2025-12-07
+#   end: 2025-12-20
+#   layers:
+#     GCOV: [HHHH, HVHV]
+#     SME2: [combined, DSG, PMI, TSR, recommended]
+
+# ----------------------------------------------------------------------------
+# SMAP L4 soil moisture (SPL4SMGP v008), built by landlab-prep-smap; the Landlab
+# pipeline ignores this block. Needs NASA Earthdata credentials, as HLS.
+# Every 3 hours on a 9 km grid, from 2015-03-31: a land model that assimilates
+# SMAP observations, so it has values under snow too. m3/m3; dates are inclusive
+# UTC days. Layers: sm_surface (0-5 cm), sm_rootzone (0-100 cm), sm_profile.
+# smap:
+#   start: 2025-12-07
+#   end: 2025-12-20
+#   layers: [sm_surface, sm_rootzone]

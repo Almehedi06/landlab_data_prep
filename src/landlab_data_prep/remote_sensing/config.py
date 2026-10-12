@@ -8,7 +8,9 @@ plausible composite from the wrong season, which nothing downstream can detect.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
+
+from landlab_data_prep.dates import parse_date
 
 SUPPORTED_INDICES = ("NBR", "NDVI", "NDMI")
 SUPPORTED_COMPOSITING = ("median",)
@@ -122,8 +124,8 @@ def _parse_windows(raw: object, problems: list[str]) -> dict[str, Window]:
             problems.append(f"{w_where} must be a mapping with keys {list(_WINDOW_KEYS)}")
             continue
         _check_keys(w, _WINDOW_KEYS, (), w_where, problems)
-        start = _parse_date(w["start"], f"{w_where}.start", problems) if "start" in w else None
-        end = _parse_date(w["end"], f"{w_where}.end", problems) if "end" in w else None
+        start = parse_date(w["start"], f"{w_where}.start", problems) if "start" in w else None
+        end = parse_date(w["end"], f"{w_where}.end", problems) if "end" in w else None
         if start is None or end is None:
             continue
         if start > end:
@@ -137,22 +139,6 @@ def _parse_windows(raw: object, problems: list[str]) -> dict[str, Window]:
             f"(pre.end={windows['pre'].end}, post.start={windows['post'].start})"
         )
     return windows
-
-
-def _parse_date(value: object, where: str, problems: list[str]) -> date | None:
-    # YAML turns an unquoted 2017-06-01 into a date; a quoted one stays a string.
-    if isinstance(value, datetime):
-        problems.append(f"{where}: expected a date like 2017-06-01, got a datetime {value}")
-        return None
-    if isinstance(value, date):
-        return value
-    if isinstance(value, str):
-        try:
-            return date.fromisoformat(value.strip())
-        except ValueError:
-            pass
-    problems.append(f"{where}: expected a date like 2017-06-01, got {value!r}")
-    return None
 
 
 def _parse_indices(raw: object, problems: list[str]) -> tuple[str, ...]:

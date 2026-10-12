@@ -15,4 +15,5 @@ dependencies:
   - landlab
   - bmi-topography
   - pystac-client
+  - h5py
   - pytest

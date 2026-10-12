@@ -16,8 +16,10 @@ from typing import Any
 import yaml
 
 from landlab_data_prep.analysis_grid import RESAMPLING
+from landlab_data_prep.nisar.config import NisarConfigError, parse_nisar_config
 from landlab_data_prep.prism.config import PrismConfigError, parse_prism_config
 from landlab_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
+from landlab_data_prep.smap.config import SmapConfigError, parse_smap_config
 from landlab_data_prep.soil_data.core import DEFAULT_SOIL_SPECS
 from landlab_data_prep.synoptic.config import SynopticConfigError, parse_synoptic_config
 
@@ -27,7 +29,7 @@ DOWNLOADING_KINDS = ("remote", "remote_then_local", "auto")
 DEM_SOURCES = ("local", "bmi-topography")
 SECTIONS = (
     "aoi", "paths", "fire", "raster", "dem", "burn_severity", "dnbr", "feature_sources",
-    "remote_sensing", "prism", "synoptic",
+    "remote_sensing", "prism", "synoptic", "nisar", "smap",
 )
 REQUIRED_SECTIONS = {
     "pipeline": ("aoi", "paths", "raster", "dem", "burn_severity", "dnbr", "feature_sources"),
@@ -37,17 +39,23 @@ REQUIRED_SECTIONS = {
     "export": ("aoi", "raster"),
     "prism": ("aoi", "paths", "raster", "prism"),
     "synoptic": ("aoi", "paths", "raster", "synoptic"),
+    "nisar": ("aoi", "paths", "raster", "nisar"),
+    "smap": ("aoi", "paths", "raster", "smap"),
 }
 # Optional source blocks: each is checked in full by its own parser whenever present.
 SOURCE_BLOCKS = {
     "remote_sensing": (parse_remote_sensing_config, RemoteSensingConfigError),
     "prism": (parse_prism_config, PrismConfigError),
     "synoptic": (parse_synoptic_config, SynopticConfigError),
+    "nisar": (parse_nisar_config, NisarConfigError),
+    "smap": (parse_smap_config, SmapConfigError),
 }
 # Commands that keep downloads in paths.cache_dir, and what they keep there.
 CACHED_DOWNLOADS = {
     "prism": "PRISM grids download",
     "synoptic": "Synoptic observations download",
+    "nisar": "NISAR subsets are cached",
+    "smap": "SMAP windows are cached",
 }
 RETIRED_KEYS = {
     "inputs": "remove it; it was never read",

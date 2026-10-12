@@ -8,6 +8,17 @@
   gauge network behind USGS FlowAlert, as interval rainfall on the analysis
   grid by nearest valid station. Responses are cached, so a cached run needs
   no token.
+- `landlab-prep-nisar`: NISAR L-band products for the AOI and a date window:
+  GCOV radar backscatter (linear gamma0, 10-20 m) and SME2 soil moisture
+  (200 m: NISAR's combined estimate, its DSG, PMI and TSR algorithms, and
+  whether NISAR recommends the retrieval). Only the window around the AOI is
+  read from each multi-gigabyte file. Calibrated (Provisional) products are
+  preferred; pre-calibration (Beta) ones fill earlier dates and are labelled.
+- `landlab-prep-smap`: SMAP L4 surface, root-zone and profile soil moisture,
+  every 3 hours on a 9 km grid, with a 3-hourly index and daily AOI means.
+- One module, `landlab_data_prep.earthdata`, for NASA Earthdata credentials,
+  CMR search and partial reads, shared by HLS, NISAR and SMAP.
+- `h5py` is a new dependency.
 
 ### Migrating from 1.0.0
 

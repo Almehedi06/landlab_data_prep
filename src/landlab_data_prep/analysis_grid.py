@@ -14,6 +14,8 @@ The AOI file is only read, never rewritten.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import math
 from pathlib import Path
 from collections.abc import Callable
@@ -25,6 +27,7 @@ from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
 from rasterio.transform import Affine
 from rasterio.vrt import WarpedVRT
+from rasterio.warp import transform_bounds
 
 from landlab_data_prep.preflight import load_and_validate_aoi
 
@@ -87,6 +90,11 @@ class Grid:
             "height": self.height,
             "transform": [float(v) for v in tuple(self.transform)[:6]],
         }
+
+    @property
+    def cache_key(self) -> str:
+        """A short name for this grid, for cached files that depend on it."""
+        return hashlib.sha256(json.dumps(self.as_dict(), sort_keys=True).encode()).hexdigest()[:12]
 
 
 def resampling_method(name: str) -> Resampling:
@@ -154,6 +162,35 @@ def grid_from_config(cfg: dict) -> Grid:
     if problems:
         raise ValueError("Cannot build the analysis grid: " + "; ".join(problems))
     return grid_for_aoi(aoi_path, float(resolution))
+
+
+def source_window(
+    x: np.ndarray,
+    y: np.ndarray,
+    crs: str,
+    bounds: tuple[float, float, float, float],
+    bounds_crs: str,
+    pad: int,
+) -> tuple[slice, slice, Affine] | None:
+    """The part of a regular, north-up source grid that covers ``bounds``, plus ``pad`` cells per side.
+
+    ``x`` and ``y`` are the source's cell-centre coordinates in ``crs``. Returns
+    (rows, columns, transform of that window), or None when the source grid does
+    not reach ``bounds``. Used to read only the needed part of a large remote file.
+    """
+    dx = float(x[1] - x[0]) if len(x) > 1 else 0.0
+    dy = float(y[1] - y[0]) if len(y) > 1 else 0.0
+    if not (dx > 0 > dy and np.allclose(np.diff(x), dx) and np.allclose(np.diff(y), dy)):
+        raise ValueError(f"source grid is not regular and north-up (spacing {dx}, {dy})")
+    left, top = float(x[0]) - dx / 2, float(y[0]) - dy / 2
+    west, south, east, north = transform_bounds(bounds_crs, crs, *bounds, densify_pts=21)
+    col0 = max(math.floor((west - left) / dx) - pad, 0)
+    col1 = min(math.ceil((east - left) / dx) + pad, len(x))
+    row0 = max(math.floor((north - top) / dy) - pad, 0)
+    row1 = min(math.ceil((south - top) / dy) + pad, len(y))
+    if col0 >= col1 or row0 >= row1:
+        return None
+    return slice(row0, row1), slice(col0, col1), Affine(dx, 0.0, left + col0 * dx, 0.0, dy, top + row0 * dy)
 
 
 def read_on_grid(

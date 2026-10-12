@@ -1,4 +1,5 @@
-# Exact linux-64 environment, solved from environment.yml on 2026-09-15.
+# Exact linux-64 environment, solved from environment.yml on 2026-09-15;
+# h5py (with cached-property) added on 2026-10-11 against the same pins.
 # Recreate it with: conda env create -f environment.lock.yml
 # Other platforms: conda env create -f environment.yml
 name: landlab_data_prep
@@ -209,6 +210,9 @@ dependencies:
   - conda-forge/linux-64::libxml2-devel==2.15.1=h26afc86_0
   - conda-forge/linux-64::libxslt==1.1.43=h711ed8c_1
   - conda-forge/linux-64::numpy==2.2.6=py310hefbff90_0
+  - conda-forge/noarch::cached_property==2.0.1=pyhcf101f3_0
+  - conda-forge/noarch::cached-property==2.0.1=pyhcf101f3_0
+  - conda-forge/linux-64::h5py==3.16.0=nompi_py310h64055e3_104
   - conda-forge/noarch::pip==26.2.1=pyh8b19718_0
   - conda-forge/linux-64::poppler==25.07.0=h13eef12_1
   - conda-forge/linux-64::pyproj==3.7.1=py310h71d0299_1
