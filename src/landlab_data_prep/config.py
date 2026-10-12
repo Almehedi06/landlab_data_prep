@@ -19,13 +19,15 @@ from landlab_data_prep.analysis_grid import RESAMPLING
 from landlab_data_prep.prism.config import PrismConfigError, parse_prism_config
 from landlab_data_prep.remote_sensing.config import RemoteSensingConfigError, parse_remote_sensing_config
 from landlab_data_prep.soil_data.core import DEFAULT_SOIL_SPECS
+from landlab_data_prep.synoptic.config import SynopticConfigError, parse_synoptic_config
 
 SOIL_KEYS = tuple(DEFAULT_SOIL_SPECS)
 SOURCE_KINDS = ("local", "remote", "remote_then_local", "auto")
 DOWNLOADING_KINDS = ("remote", "remote_then_local", "auto")
 DEM_SOURCES = ("local", "bmi-topography")
 SECTIONS = (
-    "aoi", "paths", "fire", "raster", "dem", "burn_severity", "dnbr", "feature_sources", "remote_sensing", "prism",
+    "aoi", "paths", "fire", "raster", "dem", "burn_severity", "dnbr", "feature_sources",
+    "remote_sensing", "prism", "synoptic",
 )
 REQUIRED_SECTIONS = {
     "pipeline": ("aoi", "paths", "raster", "dem", "burn_severity", "dnbr", "feature_sources"),
@@ -34,6 +36,18 @@ REQUIRED_SECTIONS = {
     "dem_difference": ("aoi", "raster"),
     "export": ("aoi", "raster"),
     "prism": ("aoi", "paths", "raster", "prism"),
+    "synoptic": ("aoi", "paths", "raster", "synoptic"),
+}
+# Optional source blocks: each is checked in full by its own parser whenever present.
+SOURCE_BLOCKS = {
+    "remote_sensing": (parse_remote_sensing_config, RemoteSensingConfigError),
+    "prism": (parse_prism_config, PrismConfigError),
+    "synoptic": (parse_synoptic_config, SynopticConfigError),
+}
+# Commands that keep downloads in paths.cache_dir, and what they keep there.
+CACHED_DOWNLOADS = {
+    "prism": "PRISM grids download",
+    "synoptic": "Synoptic observations download",
 }
 RETIRED_KEYS = {
     "inputs": "remove it; it was never read",
@@ -74,7 +88,7 @@ def validate_config(cfg: Any, command: str, source: str = "config") -> None:
     _check_keys(cfg, "", required, [s for s in SECTIONS if s not in required], p)
     present = {
         name for name in SECTIONS
-        if name in cfg and name not in ("remote_sensing", "prism") and _is_mapping(cfg[name], name, p)
+        if name in cfg and name not in SOURCE_BLOCKS and _is_mapping(cfg[name], name, p)
     }
 
     if "aoi" in present:
@@ -104,20 +118,16 @@ def validate_config(cfg: Any, command: str, source: str = "config") -> None:
         _check_source_block(cfg["dnbr"], "dnbr", True, p)
     if "feature_sources" in present:
         _check_feature_sources(cfg["feature_sources"], command, p)
-    if "remote_sensing" in cfg:
-        try:
-            parse_remote_sensing_config(cfg["remote_sensing"])
-        except RemoteSensingConfigError as exc:
-            p.extend(exc.problems)
-    if "prism" in cfg:
-        try:
-            parse_prism_config(cfg["prism"])
-        except PrismConfigError as exc:
-            p.extend(exc.problems)
+    for name, (parse, error) in SOURCE_BLOCKS.items():
+        if name in cfg:
+            try:
+                parse(cfg[name])
+            except error as exc:
+                p.extend(exc.problems)
     if command in ("pipeline", "soil"):
         _check_downloads(cfg, command, p)
-    if command == "prism" and not (isinstance(cfg.get("paths"), dict) and cfg["paths"].get("cache_dir")):
-        p.append("paths.cache_dir: required because PRISM grids download")
+    if command in CACHED_DOWNLOADS and not (isinstance(cfg.get("paths"), dict) and cfg["paths"].get("cache_dir")):
+        p.append(f"paths.cache_dir: required because {CACHED_DOWNLOADS[command]}")
 
     if p:
         raise ConfigError(source, p)

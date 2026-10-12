@@ -2,7 +2,8 @@
 
 Builds analysis-ready inputs for Landlab landslide and postfire debris-flow
 models. One YAML config in, one common grid out: DEM, burn severity, soil,
-landcover and K-factor, plus optional satellite indices and daily weather.
+landcover and K-factor, plus optional HLS vegetation indices, PRISM daily weather
+and Synoptic station rainfall.
 
 ## Install
 
@@ -40,6 +41,7 @@ The config is never tracked by git, and holds one event at a time.
 | `landlab-prep-soil-align` | `scripts/soil_harmonize.py` | Align fetched soil layers |
 | `landlab-prep-hls` | `scripts/remote_sensing_run.py` | HLS vegetation indices |
 | `landlab-prep-prism` | `scripts/prism_run.py` | PRISM daily rain and temperature |
+| `landlab-prep-synoptic` | `scripts/synoptic_run.py` | Synoptic station rainfall |
 | `landlab-prep-dem-difference` | `scripts/dem_difference.py` | Post minus pre DEM |
 | `landlab-prep-export-tifs` | `scripts/export_tifs.py` | ASCII grids to GeoTIFF |
 
@@ -106,6 +108,36 @@ revised data are fetched again and unchanged data are reused.
 
 PRISM covers the conterminous US only. Cite it as PRISM Group, Oregon State
 University, https://prism.oregonstate.edu.
+
+## Synoptic station rainfall (optional)
+
+Station precipitation from the [Synoptic API](https://docs.synopticdata.com/services/precipitation),
+the gauge network behind [USGS FlowAlert](https://www.usgs.gov/programs/landslide-hazards/flowalert).
+It gives rainfall forcing, not FlowAlert's intensities, thresholds or alerts.
+
+1. Fill in the `synoptic` block: `start`, `end`, `interval_hours` (1, 2, 3, 4, 6,
+   8, 12 or 24), `buffer_km` and `max_distance_km`.
+2. Set `SYNOPTIC_TOKEN`, or put `SYNOPTIC_TOKEN=...` in the project's `.env`
+   (git-ignored). Get a public API token under Data Access Credentials at
+   <https://customer.synopticdata.com/>; the account needs precipitation and
+   historical-data access.
+3. Run `landlab-prep-synoptic --config config/base.yaml`.
+
+Dates are inclusive UTC days, up to 366 per run. Stations within `buffer_km` of
+the AOI are used. Each cell gets the total of the nearest valid station within
+`max_distance_km`, otherwise NoData, never zero; a total is used only when it is
+finite, non-negative, from at least one report, and covers exactly the requested
+interval. The grid shows nearest-station assignment, not gauge resolution, so
+check coverage before using AOI means. Original JSON responses are cached under
+`<cache_dir>/synoptic/`, so a cached run needs no token; `--refresh` fetches
+them again.
+
+Written to `<output_dir>/synoptic_forcing`: a grid per interval in
+`aligned_tif/ppt/` and `asc/ppt/` (mm), `station_index/` and
+`station_distance_km/` (the gauge that filled each cell, and how far away),
+`forcing_synoptic.csv` (AOI mean, coverage and station count per interval),
+`rainfall.csv` (every returned station interval and whether it was used),
+`stations.csv`, `stations.gpkg` and `synoptic_manifest.json`.
 
 ## Standalone DEM download
 

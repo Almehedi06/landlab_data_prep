@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `landlab-prep-synoptic`: station precipitation from the Synoptic API, the
+  gauge network behind USGS FlowAlert, as interval rainfall on the analysis
+  grid by nearest valid station. Responses are cached, so a cached run needs
+  no token.
+
+### Migrating from 1.0.0
+
+- Nothing is required. Existing configs keep working.
+
 ## 1.0.0 - 2026-09-29
 
 First stable release. The config format and the commands are settled.

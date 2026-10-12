@@ -136,3 +136,14 @@ feature_sources:
 #   end: 2025-12-20
 #   variables: [ppt, tmin, tmax]
 #   resolution: 800m        # or 4km
+
+# ----------------------------------------------------------------------------
+# Synoptic station rainfall (the source used by USGS FlowAlert).
+# Run separately with landlab-prep-synoptic. Requires SYNOPTIC_TOKEN for downloads.
+# Dates are inclusive UTC days. Nearest valid station assignment, not a radar product.
+# synoptic:
+#   start: 2025-12-07
+#   end: 2025-12-20
+#   interval_hours: 1       # 1, 2, 3, 4, 6, 8, 12, or 24
+#   buffer_km: 4            # station search around the AOI
+#   max_distance_km: 25     # maximum cell-to-station distance; otherwise NoData
