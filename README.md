@@ -60,6 +60,10 @@ Every command takes `--config`. Add `--help` for its options.
 
 ## Outputs
 
+`docs/landlab_workflow_contract.md` states the grid rule, every input with
+its resampling and nodata rule, and the fields that come out, for anyone
+staging data for this workflow.
+
 - **Grid.** One analysis grid for every layer: the AOI's UTM zone, AOI bounds
   snapped to multiples of `raster.target_res`.
 - **Files.** ESRI ASCII for Landlab in `paths.output_dir`; GeoTIFFs too with
@@ -89,8 +93,12 @@ Written to `<output_dir>/remote_sensing`:
 | File | Content |
 |---|---|
 | `hls_<index>_pre.tif`, `hls_<index>_post.tif` | Median of cloud-free observations |
-| `hls_dndvi.tif`, `hls_dndmi.tif` | Pre minus post |
-| `hls_dnbr.tif`, `hls_rdnbr.tif` | dNBR and relative dNBR, scaled by 1000 |
+| `hls_delta_ndvi.tif`, `hls_delta_ndmi.tif` | Post minus pre; loss is negative |
+| `hls_delta_nbr.tif`, `hls_rdelta_nbr.tif` | NBR change and relativized NBR change, post minus pre, scaled by 1000 |
+
+Every change layer is post minus pre, as for elevation change: negative means
+loss. The NBR pair is the published dNBR and RdNBR with the sign flipped, which
+is why the names differ: high severity is `delta_nbr` below -660.
 | `hls_clear_count_pre.tif`, `hls_clear_count_post.tif` | Cloud-free days per pixel |
 
 Cloud, shadow, snow and high-aerosol pixels are masked. HLS starts in 2013
