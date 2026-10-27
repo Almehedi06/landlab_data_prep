@@ -30,10 +30,22 @@
   (Landlab fields `hls__delta_*`). The NBR pair is the published dNBR and
   RdNBR with the sign flipped: high severity is `delta_nbr` below -660.
 
+### Fixed
+
+- Fields the pipeline computes on the Landlab grid (burn severity and every
+  soil, cohesion and vegetation field) were written half a cell north-east of
+  the DEM with Landlab 2.11 or later. The writer fell back to Landlab's
+  deprecated writer, which stores the lower-left node as the corner, while
+  Landlab 2.11 reads that corner as a cell corner. Fields are now written from
+  the analysis grid's own corner and checked against it after writing. The
+  values were always right; only their placement was off.
+
 ### Migrating from 1.0.0
 
 - Configs keep working. Anything that reads the HLS change rasters must use
   the new names and expect the opposite sign.
+- Rebuild pipeline outputs made with Landlab 2.11 or later, and the GeoTIFFs
+  exported from them.
 
 ## 1.0.0 - 2026-09-29
 

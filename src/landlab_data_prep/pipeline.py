@@ -355,12 +355,12 @@ def _burn_transform(values: np.ndarray) -> np.ndarray:
     return values
 
 
-def _write_field(grid, output_dir: str, name: str) -> None:
-    """Write a node field as ESRI ASCII, refusing values no reader can parse."""
+def _write_field(grid, analysis_grid: Grid, output_dir: str, name: str) -> None:
+    """Write a node field as ESRI ASCII on the analysis grid, refusing values no reader can parse."""
     bad = int(np.count_nonzero(~np.isfinite(np.asarray(grid.at_node[name], dtype=float))))
     if bad:
         raise ValueError(f"{name} has {bad} non-finite values; refusing to write {name}.asc")
-    write_ascii_field(os.path.join(output_dir, f"{name}.asc"), grid, name)
+    write_ascii_field(os.path.join(output_dir, f"{name}.asc"), grid, name, analysis_grid)
 
 
 def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
@@ -369,6 +369,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
     if "dem" not in outputs:
         raise ValueError("Missing DEM output; cannot build master grid.")
 
+    analysis_grid = grid_from_config(cfg)
     grid = load_grid(outputs["dem"], "topographic__elevation")
     nodata_val = read_nodata_value(outputs["dem"])
     grid.set_nodata_nodes_to_closed(grid.at_node["topographic__elevation"], nodata_val)
@@ -412,7 +413,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         )
         # Persist canonical values from the grid so scaled/transformed fields
         # (e.g., soil__thickness from cm -> m) are reflected in output ASCII.
-        _write_field(grid, output_dir, spec.field_name)
+        _write_field(grid, analysis_grid, output_dir, spec.field_name)
 
     landcover_keys = list(cfg.get("feature_sources", {}).get("landcover", {}).keys())
     for key in landcover_keys:
@@ -508,7 +509,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
         "soil__internal_friction_angle",
         "soil__density",
     ):
-        _write_field(grid, output_dir, name)
+        _write_field(grid, analysis_grid, output_dir, name)
 
     if "landcover" in grid.at_node:
         landcover = grid.at_node["landcover"]
@@ -529,7 +530,7 @@ def run_landlab_pipeline(cfg: dict, outputs: dict, strict: bool = True):
             "soil__mode_total_cohesion",
             "vegetation__plant_functional_type",
         ):
-            _write_field(grid, output_dir, name)
+            _write_field(grid, analysis_grid, output_dir, name)
 
     return grid
 

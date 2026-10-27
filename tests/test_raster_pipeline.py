@@ -215,6 +215,10 @@ def test_main_pipeline_local_smoke(tmp_path: Path) -> None:
     assert set(np.unique(kffact_out).round(4)) == {-9999.0, 0.28}  # water code masked, real values kept
     grid = run_landlab_pipeline(cfg, outputs)
 
+    # Every layer, written from the Landlab grid or not, sits exactly where the DEM sits.
+    for path in sorted(out_dir.glob("*.asc")):
+        check_on_grid(path, grid_from_config(cfg))
+
     assert "soil__thickness" in grid.at_node
     assert "burn__dnbr" not in grid.at_node
     assert np.isclose(float(np.mean(grid.at_node["soil__thickness"][grid.core_nodes])), 2.0)

@@ -6,10 +6,7 @@ from collections.abc import Callable
 import numpy as np
 from landlab.io import esri_ascii
 
-try:
-    from landlab.io import write_esri_ascii as _write_esri_ascii
-except Exception:  # pragma: no cover - fallback for older landlab
-    _write_esri_ascii = None
+from landlab_data_prep.analysis_grid import NODATA, Grid, GridMismatchError, check_on_grid
 
 
 def read_nodata_value(ascii_path: str, default: float = -9999.0) -> float:
@@ -66,17 +63,26 @@ def add_ascii_field(
     return master_grid
 
 
-def write_ascii_field(path: str, grid, field_name: str, clobber: bool = True) -> None:
-    try:
-        esri_ascii.dump(path, grid, field_name, clobber=clobber)
-        return
-    except Exception:
-        try:
-            with open(path, "w") as f:
-                esri_ascii.dump(f, grid, field_name, clobber=clobber)
-            return
-        except Exception:
-            if _write_esri_ascii is None:
-                raise
+def write_ascii_field(path: str, grid, field_name: str, analysis_grid: Grid) -> None:
+    """Write a node field as ESRI ASCII on ``analysis_grid``, where the DEM and every aligned layer sit.
 
-    _write_esri_ascii(path, grid, field_name, clobber=clobber)
+    The header comes from the analysis grid, not from Landlab: Landlab's ESRI
+    ASCII conventions have changed between versions, and a mix of them once put
+    every field half a cell north-east of the DEM. Landlab nodes run from the
+    bottom row up; ASCII rows run from the top down.
+    """
+    if tuple(grid.shape) != analysis_grid.shape:
+        raise GridMismatchError(
+            f"{field_name}: Landlab grid {tuple(grid.shape)} is not the analysis grid {analysis_grid.shape}"
+        )
+    values = np.asarray(grid.at_node[field_name], dtype=float).reshape(grid.shape)
+    left, bottom, _, _ = analysis_grid.bounds
+    with open(path, "w") as f:
+        f.write(f"ncols         {analysis_grid.width}\n")
+        f.write(f"nrows         {analysis_grid.height}\n")
+        f.write(f"xllcorner     {left}\n")
+        f.write(f"yllcorner     {bottom}\n")
+        f.write(f"cellsize      {analysis_grid.resolution}\n")
+        f.write(f"NODATA_value  {NODATA}\n")
+        np.savetxt(f, np.flipud(values), fmt="%.9g")
+    check_on_grid(path, analysis_grid)
