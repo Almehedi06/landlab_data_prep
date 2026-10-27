@@ -37,7 +37,7 @@ from landlab_data_prep.remote_sensing.core import (
     build_hls_products,
     product_specs,
 )
-from landlab_data_prep.remote_sensing.indices import difference, dnbr, rdnbr
+from landlab_data_prep.remote_sensing.indices import delta_nbr, difference, rdelta_nbr
 from landlab_data_prep.remote_sensing.qa import clear_mask
 
 UTC = timezone.utc
@@ -65,20 +65,20 @@ def _block(**overrides) -> dict:
 
 def test_difference_propagates_missing_pixels() -> None:
     out = difference(np.array([0.8, np.nan, 0.5]), np.array([0.3, 0.2, np.nan]))
-    assert np.isclose(out[0], 0.5)
+    assert np.isclose(out[0], -0.5)     # post minus pre: a drop is negative
     assert np.isnan(out[1]) and np.isnan(out[2])
 
 
-def test_dnbr_uses_x1000_convention() -> None:
-    assert np.isclose(dnbr([0.6], [0.1])[0], 500.0)
+def test_delta_nbr_is_post_minus_pre_x1000() -> None:
+    assert np.isclose(delta_nbr([0.6], [0.1])[0], -500.0)     # the published dNBR would be +500
 
 
-def test_rdnbr_matches_miller_thode_and_floors_near_zero_pre() -> None:
-    # dNBR = 1000 * (0.25 - -0.25) = 500; sqrt(0.25) = 0.5
-    assert np.isclose(rdnbr([0.25], [-0.25])[0], 1000.0)
+def test_rdelta_nbr_matches_miller_thode_with_sign_flipped_and_floors_near_zero_pre() -> None:
+    # delta_nbr = 1000 * (-0.25 - 0.25) = -500; sqrt(0.25) = 0.5
+    assert np.isclose(rdelta_nbr([0.25], [-0.25])[0], -1000.0)
     # |NBR_pre| = 0 is floored at 0.001 instead of dividing by zero
-    assert np.isclose(rdnbr([0.0], [-0.1])[0], 100.0 / np.sqrt(0.001), rtol=1e-4)
-    assert np.isnan(rdnbr([np.nan], [0.1])[0])
+    assert np.isclose(rdelta_nbr([0.0], [-0.1])[0], -100.0 / np.sqrt(0.001), rtol=1e-4)
+    assert np.isnan(rdelta_nbr([np.nan], [0.1])[0])
 
 
 def test_change_metrics_reject_shape_mismatch() -> None:
@@ -188,13 +188,15 @@ def test_example_config_block_is_valid() -> None:
 
 def test_product_specs_names_and_units() -> None:
     ndvi = {s.key: s for s in product_specs(parse_remote_sensing_config(_block(indices=["NDVI"])))}
-    assert set(ndvi) == {"hls_ndvi_pre", "hls_ndvi_post", "hls_dndvi", "hls_clear_count_pre", "hls_clear_count_post"}
-    assert ndvi["hls_clear_count_pre"].is_count and not ndvi["hls_dndvi"].is_count
+    assert set(ndvi) == {
+        "hls_ndvi_pre", "hls_ndvi_post", "hls_delta_ndvi", "hls_clear_count_pre", "hls_clear_count_post",
+    }
+    assert ndvi["hls_clear_count_pre"].is_count and not ndvi["hls_delta_ndvi"].is_count
     assert ndvi["hls_ndvi_pre"].field_name == "hls__ndvi_pre"
 
     nbr = {s.key: s for s in product_specs(parse_remote_sensing_config(_block(indices=["NBR"])))}
-    assert nbr["hls_dnbr"].units == "unitless x1000"
-    assert "hls_rdnbr" in nbr and "hls_dnbr" in nbr
+    assert nbr["hls_delta_nbr"].units == "unitless x1000"
+    assert "hls_rdelta_nbr" in nbr and "hls_delta_nbr" in nbr
 
 
 # ---------------------------------------------------------------- catalog and auth
@@ -411,7 +413,7 @@ EXPECTED_KEYS = [
     "hls_nbr_pre", "hls_nbr_post",
     "hls_ndvi_pre", "hls_ndvi_post",
     "hls_ndmi_pre", "hls_ndmi_post",
-    "hls_dnbr", "hls_rdnbr", "hls_dndvi", "hls_dndmi",
+    "hls_delta_nbr", "hls_rdelta_nbr", "hls_delta_ndvi", "hls_delta_ndmi",
     "hls_clear_count_pre", "hls_clear_count_post",
 ]
 
@@ -460,11 +462,11 @@ def test_build_hls_products_end_to_end_offline(tmp_path: Path, monkeypatch) -> N
     assert np.isclose(a["hls_nbr_post"][2, 3], -0.1, **tol)
     assert a["hls_clear_count_post"][2, 3] == 1
 
-    # Change metrics on the native grid.
-    assert np.isclose(a["hls_dndvi"][3, 3], 0.45, **tol)
-    assert np.isclose(a["hls_dndmi"][3, 3], 0.275, **tol)
-    assert np.isclose(a["hls_dnbr"][3, 3], 650.0, atol=1e-2)
-    assert np.isclose(a["hls_rdnbr"][3, 3], 650.0 / np.sqrt(0.5), atol=1e-2)
+    # Change metrics on the native grid: post minus pre, so the burn is negative.
+    assert np.isclose(a["hls_delta_ndvi"][3, 3], -0.45, **tol)
+    assert np.isclose(a["hls_delta_ndmi"][3, 3], -0.275, **tol)
+    assert np.isclose(a["hls_delta_nbr"][3, 3], -650.0, atol=1e-2)
+    assert np.isclose(a["hls_rdelta_nbr"][3, 3], -650.0 / np.sqrt(0.5), atol=1e-2)
     assert (a["hls_clear_count_post"] >= 1).all()
 
     manifest = json.loads((tmp_path / "out" / MANIFEST_NAME).read_text())
@@ -474,7 +476,7 @@ def test_build_hls_products_end_to_end_offline(tmp_path: Path, monkeypatch) -> N
     assert manifest["windows"]["post"]["dropped_above_cloud_max"] == 1
     assert "Q2" not in manifest["windows"]["post"]["scene_ids"]
     assert [p["key"] for p in manifest["products"]] == EXPECTED_KEYS
-    assert {p["units"] for p in manifest["products"] if p["key"] == "hls_dnbr"} == {"unitless x1000"}
+    assert {p["units"] for p in manifest["products"] if p["key"] == "hls_delta_nbr"} == {"unitless x1000"}
 
     # On a 30 m analysis grid, alignment reproduces the native composites.
     assert manifest["analysis_grid"]["resolution"] == 30.0

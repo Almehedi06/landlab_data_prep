@@ -77,17 +77,19 @@ def product_specs(rs_cfg: RemoteSensingConfig) -> list[ProductSpec]:
     for name in rs_cfg.indices:
         low = name.lower()
         if name == "NBR":
-            specs.append(ProductSpec("hls_dnbr", "hls__dnbr", "unitless x1000", "dNBR = 1000 * (NBR_pre - NBR_post)"))
+            specs.append(ProductSpec("hls_delta_nbr", "hls__delta_nbr", "unitless x1000",
+                                     "1000 * (NBR_post - NBR_pre), i.e. -dNBR; burn is negative"))
             specs.append(
                 ProductSpec(
-                    "hls_rdnbr",
-                    "hls__rdnbr",
+                    "hls_rdelta_nbr",
+                    "hls__rdelta_nbr",
                     "unitless x1000",
-                    "RdNBR = dNBR / sqrt(max(|NBR_pre|, 0.001))",
+                    "delta_nbr / sqrt(max(|NBR_pre|, 0.001)), i.e. -RdNBR",
                 )
             )
         else:
-            specs.append(ProductSpec(f"hls_d{low}", f"hls__d{low}", "unitless", f"{name}_pre - {name}_post"))
+            specs.append(ProductSpec(f"hls_delta_{low}", f"hls__delta_{low}", "unitless",
+                                     f"{name}_post - {name}_pre; loss is negative"))
     for w in rs_cfg.windows:
         specs.append(
             ProductSpec(
@@ -209,10 +211,10 @@ def _product_arrays(
     for name in rs_cfg.indices:
         low = name.lower()
         if name == "NBR":
-            arrays["hls_dnbr"] = metrics.dnbr(pre.medians[name], post.medians[name])
-            arrays["hls_rdnbr"] = metrics.rdnbr(pre.medians[name], post.medians[name])
+            arrays["hls_delta_nbr"] = metrics.delta_nbr(pre.medians[name], post.medians[name])
+            arrays["hls_rdelta_nbr"] = metrics.rdelta_nbr(pre.medians[name], post.medians[name])
         else:
-            arrays[f"hls_d{low}"] = metrics.difference(pre.medians[name], post.medians[name])
+            arrays[f"hls_delta_{low}"] = metrics.difference(pre.medians[name], post.medians[name])
     for w in rs_cfg.windows:
         arrays[f"hls_clear_count_{w.name}"] = composites[w.name].clear_count.astype(np.float32)
     return arrays

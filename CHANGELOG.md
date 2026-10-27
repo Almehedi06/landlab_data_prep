@@ -20,9 +20,20 @@
   CMR search and partial reads, shared by HLS, NISAR and SMAP.
 - `h5py` is a new dependency.
 
+### Changed
+
+- HLS change layers are now post minus pre, like every other change layer
+  (elevation change, DeltaG): negative means loss. They are renamed so the old
+  names, which meant pre minus post, cannot be read with the wrong sign:
+  `hls_dndvi` -> `hls_delta_ndvi`, `hls_dndmi` -> `hls_delta_ndmi`,
+  `hls_dnbr` -> `hls_delta_nbr` and `hls_rdnbr` -> `hls_rdelta_nbr`
+  (Landlab fields `hls__delta_*`). The NBR pair is the published dNBR and
+  RdNBR with the sign flipped: high severity is `delta_nbr` below -660.
+
 ### Migrating from 1.0.0
 
-- Nothing is required. Existing configs keep working.
+- Configs keep working. Anything that reads the HLS change rasters must use
+  the new names and expect the opposite sign.
 
 ## 1.0.0 - 2026-09-29
 
